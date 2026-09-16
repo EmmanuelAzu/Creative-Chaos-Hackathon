@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+html {
+  background: #F5F7F0;
+}
+
+body {
+  color: #0B1F1E;
+}
+
+::selection {
+  background: #B6FF3D;
+  color: #12143D;
+}
+
+.circuit-rule {
+  background-image: linear-gradient(90deg, #12736F 0 6px, transparent 6px 10px);
+  background-size: 10px 2px;
+  background-repeat: repeat-x;
+  background-position: bottom;
+  height: 2px;
+}
+
+.focus-ring:focus-visible {
+  outline: 2px solid #12736F;
+  outline-offset: 2px;
+}
