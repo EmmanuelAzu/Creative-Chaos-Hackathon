@@ -1,14 +1,15 @@
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { PDFDocument, PDFFont, PDFPage, rgb } from "pdf-lib";
+import fontkit from "@pdf-lib/fontkit";
 import fs from "fs";
 import path from "path";
 import type { Person, Team } from "./types";
 import { supabaseAdmin } from "./supabase";
 
 export interface Tier {
-  title: string; // e.g. "1st Place"
-  medal?: "gold" | "silver" | "bronze";
+  title: string; // e.g. "1st Place" — used for the certificate's admin-facing label
+  subtitle: string; // e.g. "1ST PLACE" — the short line under "CERTIFICATE" on the PDF
   accentHex: string;
-  resultLine: string; // sentence describing the achievement
+  resultLine: string; // clause describing the achievement, appended to the body sentence
 }
 
 const HEX = {
@@ -16,23 +17,31 @@ const HEX = {
   silver: "#C0C0C0",
   bronze: "#CD7F32",
   volt: "#B6FF3D",
-  teal: "#12736F",
+  cyan: "#29D9EA",
+  orange: "#F2A93C",
+  white: "#F2F5F4",
+  muted: "#B7BDC6",
 };
 
-/** Works out what a participant's certificate should say, based on live standings. */
+const PLACE_WORDS = ["", "1ST", "2ND", "3RD", "4TH", "5TH"];
+const PLACE_WORDS_TITLE = ["", "1st", "2nd", "3rd", "4th", "5th"];
+
+/** Works out what a person's certificate should say, based on live standings. */
 export async function resolveTier(person: Person): Promise<Tier> {
   if (person.role === "judge") {
     return {
       title: "Certificate of Appreciation",
-      accentHex: HEX.teal,
-      resultLine: "for generously giving their time and expertise as a judge",
+      subtitle: "OF APPRECIATION",
+      accentHex: HEX.orange,
+      resultLine: "gave their time and expertise as a judge",
     };
   }
   if (person.role === "committee") {
     return {
       title: "Certificate of Appreciation",
-      accentHex: HEX.teal,
-      resultLine: "for their contribution to organizing the event",
+      subtitle: "OF APPRECIATION",
+      accentHex: HEX.orange,
+      resultLine: "helped organize and run the event",
     };
   }
 
@@ -47,11 +56,15 @@ export async function resolveTier(person: Person): Promise<Tier> {
       .maybeSingle();
 
     const rank = team?.final_rank as number | null | undefined;
-    if (rank === 1) return { title: "1st Place", medal: "gold", accentHex: HEX.gold, resultLine: "for taking 1st place" };
-    if (rank === 2) return { title: "2nd Place", medal: "silver", accentHex: HEX.silver, resultLine: "for taking 2nd place" };
-    if (rank === 3) return { title: "3rd Place", medal: "bronze", accentHex: HEX.bronze, resultLine: "for taking 3rd place" };
-    if (rank === 4) return { title: "4th Place", accentHex: HEX.volt, resultLine: "for reaching the final stage and placing 4th" };
-    if (rank === 5) return { title: "5th Place", accentHex: HEX.volt, resultLine: "for reaching the final stage and placing 5th" };
+    if (rank && rank >= 1 && rank <= 5) {
+      const accent = rank === 1 ? HEX.gold : rank === 2 ? HEX.silver : rank === 3 ? HEX.bronze : HEX.volt;
+      return {
+        title: `${PLACE_WORDS_TITLE[rank]} Place`,
+        subtitle: `${PLACE_WORDS[rank]} PLACE`,
+        accentHex: accent,
+        resultLine: `and placed ${PLACE_WORDS[rank].toLowerCase()} in the final round`,
+      };
+    }
 
     // Not in the final 5 — fall back to round-1 standing for a top-10 shout-out.
     const { data: ranked } = await admin
@@ -62,21 +75,35 @@ export async function resolveTier(person: Person): Promise<Tier> {
     if (position >= 6 && position <= 10) {
       return {
         title: "Top 10 Finalist",
-        accentHex: HEX.teal,
-        resultLine: "for placing in the top 10 teams",
+        subtitle: "TOP 10 FINALIST",
+        accentHex: HEX.volt,
+        resultLine: "placing in the top 10 teams of round one",
       };
     }
   }
 
   return {
     title: "Certificate of Participation",
-    accentHex: HEX.teal,
-    resultLine: "for taking part and building something in the time given",
+    subtitle: "OF PARTICIPATION",
+    accentHex: HEX.orange,
+    resultLine: "building something real in a room full of people doing the same",
   };
 }
 
 function readPublic(...parts: string[]) {
   return fs.readFileSync(path.join(process.cwd(), "public", ...parts));
+}
+
+// The template PNG is 2000x1414 — an A4-landscape ratio, same as the page below.
+const IMG_W = 2000;
+const IMG_H = 1414;
+const PAGE_W = 841.89;
+const PAGE_H = 595.28;
+const SCALE = PAGE_W / IMG_W;
+
+/** Converts a coordinate measured on the 2000x1414 template PNG into PDF points. */
+function pt(imgX: number, imgY: number) {
+  return { x: imgX * SCALE, y: PAGE_H - imgY * SCALE };
 }
 
 export async function renderCertificatePdf(
@@ -85,86 +112,124 @@ export async function renderCertificatePdf(
   tier: Tier
 ): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
-  const page = doc.addPage([841.89, 595.28]); // A4 landscape
-  const { width, height } = page.getSize();
+  doc.registerFontkit(fontkit);
+  const page = doc.addPage([PAGE_W, PAGE_H]);
 
-  const bold = await doc.embedFont(StandardFonts.HelveticaBold);
-  const regular = await doc.embedFont(StandardFonts.Helvetica);
-  const italic = await doc.embedFont(StandardFonts.HelveticaOblique);
+  const bg = await doc.embedPng(readPublic("certificate-bg.png"));
+  page.drawImage(bg, { x: 0, y: 0, width: PAGE_W, height: PAGE_H });
 
-  const ink = rgb(0x12 / 255, 0x14 / 255, 0x3d / 255);
-  const paper = rgb(0xf5 / 255, 0xf7 / 255, 0xf0 / 255);
+  const chakraBold = await doc.embedFont(readPublic("fonts", "ChakraPetch-Bold.ttf"), { subset: true });
+  const chakraSemi = await doc.embedFont(readPublic("fonts", "ChakraPetch-SemiBold.ttf"), { subset: true });
+  // Rajdhani's glyph tables corrupt under pdf-lib's subsetter (multi-script font) — embed in full.
+  const rajMed = await doc.embedFont(readPublic("fonts", "Rajdhani-Medium.ttf"), { subset: false });
+  const rajSemi = await doc.embedFont(readPublic("fonts", "Rajdhani-SemiBold.ttf"), { subset: false });
+
+  const white = hexToRgb(HEX.white);
+  const muted = hexToRgb(HEX.muted);
+  const cyan = hexToRgb(HEX.cyan);
   const accent = hexToRgb(tier.accentHex);
 
-  // Background
-  page.drawRectangle({ x: 0, y: 0, width, height, color: ink });
-  // Inner border
-  page.drawRectangle({
-    x: 28,
-    y: 28,
-    width: width - 56,
-    height: height - 56,
-    borderColor: accent,
-    borderWidth: 2,
-  });
-  // Accent bar under the header
-  page.drawRectangle({ x: 28, y: height - 150, width: width - 56, height: 3, color: accent });
-
-  // Kudu logo, top-left
+  // ---------- header: Wits Developer Society (left) + event mark (right) ----------
   try {
-    const logoBytes = readPublic("logo.png");
+    const logoBytes = readPublic("logo-icon.png");
     const logo = await doc.embedPng(logoBytes);
-    const logoDim = logo.scale(60 / logo.width);
-    page.drawImage(logo, { x: 55, y: height - 115, width: logoDim.width, height: logoDim.height });
+    // chip in image-space px, converted to pt at draw time — chip spans imgX 90-210, imgY 60-180
+    const chipTopLeft = pt(90, 60);
+    const chipBottomRight = pt(210, 180);
+    const chipW = chipBottomRight.x - chipTopLeft.x;
+    const chipH = chipTopLeft.y - chipBottomRight.y;
+    page.drawRectangle({ x: chipTopLeft.x, y: chipBottomRight.y, width: chipW, height: chipH, color: white });
+    const iconPad = chipW * 0.16;
+    const logoDim = logo.scale((chipW - iconPad * 2) / logo.width);
+    page.drawImage(logo, {
+      x: chipTopLeft.x + (chipW - logoDim.width) / 2,
+      y: chipBottomRight.y + (chipH - logoDim.height) / 2,
+      width: logoDim.width,
+      height: logoDim.height,
+    });
+    drawText(page, "WITS DEVELOPER SOCIETY", pt(232, 100), 11, chakraSemi, white);
+    drawTracked(page, "ORGANIZED BY", pt(232, 122), 7.5, rajSemi, cyan, 1.2);
   } catch {
     /* logo optional */
   }
+  drawTextRight(page, "CREATIVE CHAOS HACKATHON 2026", pt(1890, 100), 10.5, chakraSemi, white);
+  drawTextRight(page, "FINALS DAY · MSL", pt(1890, 122), 8, rajSemi, muted);
 
-  page.drawText("CREATIVE CHAOS HACKATHON 2026", {
-    x: 130,
-    y: height - 75,
-    size: 16,
-    font: bold,
-    color: paper,
-  });
-  page.drawText("Wits Developer Society \u2014 Finals Day, MSL", {
-    x: 130,
-    y: height - 95,
-    size: 10,
-    font: regular,
-    color: paper,
-    opacity: 0.7,
-  });
+  // ---------- headline ----------
+  const certer = pt(1000, 250);
+  drawTrackedCentered(page, "CERTIFICATE", certer.x, certer.y, 34, chakraBold, white, 1.5);
+  const suber = pt(1000, 345);
+  drawTrackedCentered(page, tier.subtitle, suber.x, suber.y, 15, chakraSemi, cyan, 4);
 
-  centerText(page, tier.title.toUpperCase(), height - 210, 30, bold, accent);
+  // ---------- body ----------
+  const lead = pt(1000, 515);
+  centerText(page, "This certifies that", lead.x, lead.y, 12.5, rajMed, muted);
 
-  centerText(page, "This certifies that", height - 260, 13, italic, paper, 0.75);
-  centerText(page, person.full_name, height - 305, 34, bold, paper);
+  const namePt = pt(1000, 600);
+  centerText(page, person.full_name.toUpperCase(), namePt.x, namePt.y, 30, chakraBold, accent);
 
+  let cursorImgY = 655;
   if (team) {
-    centerText(page, `of team "${team.name}"`, height - 335, 14, italic, paper, 0.85);
+    const teamPt = pt(1000, cursorImgY);
+    centerText(page, `of team “${team.name}”`, teamPt.x, teamPt.y, 13, rajSemi, cyan);
+    cursorImgY += 55;
+  } else {
+    cursorImgY += 10;
   }
 
-  centerText(page, tier.resultLine, height - 375, 15, regular, paper);
+  const bodySentence =
+    person.role === "participant"
+      ? `took part in the Creative Chaos Hackathon 2026 from the 13th to the 19th of September 2026, ${tier.resultLine}.`
+      : `${tier.resultLine} at the Creative Chaos Hackathon 2026, held from the 13th to the 19th of September 2026.`;
+  cursorImgY = wrapCentered(page, bodySentence, 1000, cursorImgY, 620, 11.5, rajMed, muted, 22);
 
-  centerText(
+  // ---------- seal ----------
+  const sealCenterImgY = 890;
+  const sealCenter = pt(1000, sealCenterImgY);
+  const sealR = 30;
+  page.drawCircle({ x: sealCenter.x, y: sealCenter.y, size: sealR, borderColor: cyan, borderWidth: 1, borderOpacity: 0.4 });
+  page.drawCircle({ x: sealCenter.x, y: sealCenter.y, size: sealR - 8, borderColor: cyan, borderWidth: 0.6, borderOpacity: 0.25 });
+  try {
+    const kudu = await doc.embedPng(readPublic("logo-icon.png"));
+    const badgeR = 24;
+    page.drawCircle({ x: sealCenter.x, y: sealCenter.y, size: badgeR, color: white });
+    const kd = kudu.scale((badgeR * 1.5) / kudu.width);
+    page.drawImage(kudu, { x: sealCenter.x - kd.width / 2, y: sealCenter.y - kd.height / 2, width: kd.width, height: kd.height });
+  } catch {
+    /* optional */
+  }
+  const captionPt = pt(1000, 1000);
+  drawTracked(
     page,
-    "19 September 2026",
-    height - 440,
-    11,
-    regular,
-    paper,
+    "WITS DEVELOPER SOCIETY × CREATIVE CHAOS 2026 ORGANIZING COMMITTEE",
+    { x: captionPt.x - trackedWidth("WITS DEVELOPER SOCIETY × CREATIVE CHAOS 2026 ORGANIZING COMMITTEE", 8.5, chakraSemi, 0.6) / 2, y: captionPt.y },
+    8.5,
+    chakraSemi,
+    white,
     0.6
   );
 
-  // Sponsor logos along the bottom
+  // ---------- sponsors ----------
+  const labelPt = pt(1000, 1045);
+  drawTracked(
+    page,
+    "WITH THANKS TO OUR SPONSORS",
+    { x: labelPt.x - trackedWidth("WITH THANKS TO OUR SPONSORS", 9, chakraSemi, 1.2) / 2, y: labelPt.y },
+    9,
+    chakraSemi,
+    muted,
+    1.2
+  );
+
   const sponsorFiles: { file: string; kind: "png" | "jpg" }[] = [
     { file: "sponsors/bbd.png", kind: "png" },
     { file: "sponsors/boxfusion.png", kind: "png" },
     { file: "sponsors/offerzen.jpg", kind: "jpg" },
+    { file: "sponsors/enactus.png", kind: "png" },
   ];
-  const targetH = 26;
-  const gap = 28;
+  const targetH = 30;
+  const gap = 22;
+  const chipPad = 14;
   const embedded: { img: any; w: number; h: number }[] = [];
   for (const s of sponsorFiles) {
     try {
@@ -176,37 +241,87 @@ export async function renderCertificatePdf(
       /* skip missing sponsor asset */
     }
   }
-  const totalW = embedded.reduce((s, e) => s + e.w, 0) + gap * (embedded.length - 1);
-  let cursorX = width / 2 - totalW / 2;
-  const sponsorY = 55;
-  // white chip behind sponsor row for contrast on the navy background
-  page.drawRectangle({
-    x: cursorX - 16,
-    y: sponsorY - 10,
-    width: totalW + 32,
-    height: targetH + 20,
-    color: paper,
-  });
+  const totalW = embedded.reduce((s, e) => s + e.w + chipPad * 2, 0) + gap * Math.max(embedded.length - 1, 0);
+  const rowCenter = pt(1000, 1110);
+  let cursorX = rowCenter.x - totalW / 2;
   for (const e of embedded) {
-    page.drawImage(e.img, { x: cursorX, y: sponsorY, width: e.w, height: e.h });
-    cursorX += e.w + gap;
+    const chipW = e.w + chipPad * 2;
+    page.drawRectangle({ x: cursorX, y: rowCenter.y - targetH / 2 - 10, width: chipW, height: targetH + 20, color: white });
+    page.drawImage(e.img, { x: cursorX + chipPad, y: rowCenter.y - e.h / 2, width: e.w, height: e.h });
+    cursorX += chipW + gap;
   }
 
   return doc.save();
 }
 
-function centerText(
-  page: any,
+function drawText(page: PDFPage, text: string, p: { x: number; y: number }, size: number, font: PDFFont, color: any) {
+  page.drawText(text, { x: p.x, y: p.y, size, font, color });
+}
+
+function drawTextRight(page: PDFPage, text: string, p: { x: number; y: number }, size: number, font: PDFFont, color: any) {
+  const w = font.widthOfTextAtSize(text, size);
+  page.drawText(text, { x: p.x - w, y: p.y, size, font, color });
+}
+
+function centerText(page: PDFPage, text: string, cx: number, y: number, size: number, font: PDFFont, color: any) {
+  const w = font.widthOfTextAtSize(text, size);
+  page.drawText(text, { x: cx - w / 2, y, size, font, color });
+}
+
+/** Draws text with manual letter-spacing (pdf-lib has no native tracking support). */
+function drawTracked(page: PDFPage, text: string, p: { x: number; y: number }, size: number, font: PDFFont, color: any, tracking: number) {
+  let x = p.x;
+  for (const ch of text) {
+    page.drawText(ch, { x, y: p.y, size, font, color });
+    x += font.widthOfTextAtSize(ch, size) + tracking;
+  }
+}
+
+function trackedWidth(text: string, size: number, font: PDFFont, tracking: number) {
+  let w = 0;
+  for (const ch of text) w += font.widthOfTextAtSize(ch, size) + tracking;
+  return w - tracking;
+}
+
+function drawTrackedCentered(page: PDFPage, text: string, cx: number, y: number, size: number, font: PDFFont, color: any, tracking: number) {
+  const w = trackedWidth(text, size, font, tracking);
+  drawTracked(page, text, { x: cx - w / 2, y }, size, font, color, tracking);
+}
+
+/** Wraps a sentence to fit maxWidthPt (in image-space px), centered, returning the next free image-y. */
+function wrapCentered(
+  page: PDFPage,
   text: string,
-  y: number,
+  centerImgX: number,
+  startImgY: number,
+  maxWidthImg: number,
   size: number,
-  font: any,
+  font: PDFFont,
   color: any,
-  opacity = 1
-) {
-  const width = page.getSize().width;
-  const textWidth = font.widthOfTextAtSize(text, size);
-  page.drawText(text, { x: width / 2 - textWidth / 2, y, size, font, color, opacity });
+  lineHeightImg: number
+): number {
+  const words = text.split(" ");
+  const maxWidthPt = maxWidthImg * SCALE;
+  const lines: string[] = [];
+  let line = "";
+  for (const word of words) {
+    const test = line ? `${line} ${word}` : word;
+    if (font.widthOfTextAtSize(test, size) > maxWidthPt && line) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = test;
+    }
+  }
+  if (line) lines.push(line);
+
+  let imgY = startImgY;
+  for (const l of lines) {
+    const p = pt(centerImgX, imgY);
+    centerText(page, l, p.x, p.y, size, font, color);
+    imgY += lineHeightImg;
+  }
+  return imgY;
 }
 
 function hexToRgb(hex: string) {
