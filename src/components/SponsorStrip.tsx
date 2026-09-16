@@ -4,6 +4,7 @@ const sponsors = [
   { src: "/sponsors/bbd.png", alt: "BBD Software Development", w: 90 },
   { src: "/sponsors/boxfusion.png", alt: "Boxfusion", w: 110 },
   { src: "/sponsors/offerzen.jpg", alt: "OfferZen", w: 100 },
+  { src: "/sponsors/enactus.png", alt: "Enactus Wits", w: 130 },
 ];
 
 export function SponsorStrip({ dark = false }: { dark?: boolean }) {
