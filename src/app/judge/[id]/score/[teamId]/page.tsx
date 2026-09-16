@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { PageShell } from "@/components/PageShell";
+import { ScanTeamButton } from "@/components/ScanTeamButton";
 import type { Criteria } from "@/lib/types";
 
-interface AssignedTeam {
-  team_id: string;
-  team_name: string;
+interface TeamOption {
+  id: string;
+  name: string;
 }
 
 export default function ScoreTeam({
@@ -17,14 +18,12 @@ export default function ScoreTeam({
   params: { id: string; teamId: string };
 }) {
   const router = useRouter();
-  const [teams, setTeams] = useState<AssignedTeam[]>([]);
+  const [teams, setTeams] = useState<TeamOption[]>([]);
   const [teamName, setTeamName] = useState("");
   const [criteria, setCriteria] = useState<Criteria[]>([]);
   const [values, setValues] = useState<Record<string, number>>({});
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [scanning, setScanning] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     load();
@@ -35,16 +34,8 @@ export default function ScoreTeam({
     setSaved(false);
     setError(null);
 
-    const { data: assignments } = await supabase
-      .from("judge_assignments")
-      .select("team_id, teams(name)")
-      .eq("judge_id", params.id);
-    setTeams(
-      (assignments ?? []).map((a: any) => ({
-        team_id: a.team_id,
-        team_name: a.teams?.name ?? "Unknown team",
-      }))
-    );
+    const { data: allTeams } = await supabase.from("teams").select("id, name").order("name");
+    setTeams((allTeams as TeamOption[]) ?? []);
 
     const { data: team } = await supabase
       .from("teams")
@@ -74,50 +65,6 @@ export default function ScoreTeam({
     router.push(`/judge/${params.id}/score/${teamId}`);
   }
 
-  async function startScan() {
-    setScanning(true);
-    setError(null);
-    if (typeof window === "undefined" || !("BarcodeDetector" in window)) {
-      setError("Camera scanning isn't supported on this device — use the dropdown instead.");
-      setScanning(false);
-      return;
-    }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
-      });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
-      // @ts-expect-error - global BarcodeDetector
-      const detector = new window.BarcodeDetector({ formats: ["qr_code"] });
-      const interval = setInterval(async () => {
-        if (!videoRef.current) return;
-        try {
-          const codes = await detector.detect(videoRef.current);
-          if (codes.length > 0) {
-            clearInterval(interval);
-            stream.getTracks().forEach((t: MediaStreamTrack) => t.stop());
-            setScanning(false);
-            const raw = codes[0].rawValue;
-            try {
-              const parsed = JSON.parse(raw);
-              if (parsed.teamId) switchTeam(parsed.teamId);
-            } catch {
-              setError("Unrecognized QR code.");
-            }
-          }
-        } catch {
-          /* keep trying */
-        }
-      }, 400);
-    } catch {
-      setError("Couldn't access the camera — use the dropdown instead.");
-      setScanning(false);
-    }
-  }
-
   async function handleSave() {
     setError(null);
     const rows = criteria.map((c) => ({
@@ -139,35 +86,24 @@ export default function ScoreTeam({
   return (
     <PageShell eyebrow="GRADING">
       <div className="max-w-lg">
-        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8">
+        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-4">
           <div>
             <p className="font-mono text-xs text-teal mb-1">NOW GRADING</p>
             <h1 className="text-3xl tracking-tight">{teamName || "—"}</h1>
           </div>
-          <div className="flex gap-2">
-            <select
-              className="border border-line bg-white px-3 py-2 text-sm focus-ring"
-              value={params.teamId}
-              onChange={(e) => switchTeam(e.target.value)}
-            >
-              {teams.map((t) => (
-                <option key={t.team_id} value={t.team_id}>
-                  {t.team_name}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={startScan}
-              className="border border-teal text-teal px-3 py-2 text-sm hover:bg-teal hover:text-paper transition-colors focus-ring"
-            >
-              Scan QR
-            </button>
-          </div>
+          <select
+            className="border border-line bg-white px-3 py-2 text-sm focus-ring"
+            value={params.teamId}
+            onChange={(e) => switchTeam(e.target.value)}
+          >
+            {teams.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
         </div>
-
-        {scanning && (
-          <video ref={videoRef} className="w-full mb-6 border border-line" muted playsInline />
-        )}
+        <ScanTeamButton onScan={switchTeam} label="Scan a different team's QR" className="mb-8" />
 
         <div className="flex flex-col gap-6">
           {criteria.map((c) => (

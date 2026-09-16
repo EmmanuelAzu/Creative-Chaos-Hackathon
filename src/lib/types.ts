@@ -56,7 +56,6 @@ export interface Round1TeamScore {
   team_id: string;
   team_name: string;
   judges_scored: number;
-  judges_assigned: number;
   aggregate_score: number | null;
 }
 

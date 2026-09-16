@@ -37,13 +37,6 @@ create table people (
 create index on people (team_id);
 create index on people (role);
 
--- ---------- ROUND 1: which judges grade which teams ----------
-create table judge_assignments (
-  judge_id uuid not null references people(id) on delete cascade,
-  team_id uuid not null references teams(id) on delete cascade,
-  primary key (judge_id, team_id)
-);
-
 -- ---------- CRITERIA (editable per stage from the admin panel) ----------
 create table criteria (
   id uuid primary key default gen_random_uuid(),
@@ -89,13 +82,14 @@ insert into settings (id) values (true);
 -- VIEWS for aggregation (recompute on read — fine at hackathon scale)
 -- ============================================================
 
--- Round 1: each team's average score per judge, then averaged across judges
+-- Round 1: each team's average score per judge, then averaged across judges.
+-- There's no fixed judge-per-team assignment — judges score whichever teams
+-- they scan, so this simply reflects however many have scored so far.
 create view round1_team_scores as
 select
   t.id as team_id,
   t.name as team_name,
   count(distinct s.judge_id) as judges_scored,
-  (select count(*) from judge_assignments ja where ja.team_id = t.id) as judges_assigned,
   round(avg(per_judge.judge_avg), 2) as aggregate_score
 from teams t
 left join (
@@ -118,32 +112,16 @@ left join final_votes fv on fv.team_id = t.id
 where t.is_top5 = true
 group by t.id, t.name;
 
--- Has every assigned judge scored every criterion for every team they're assigned?
-create view round1_completion as
-select
-  (select count(*) from judge_assignments) as total_assignments,
-  (
-    select count(*) from (
-      select ja.judge_id, ja.team_id
-      from judge_assignments ja
-      where (
-        select count(distinct s.criteria_id) from scores s
-        where s.judge_id = ja.judge_id and s.team_id = ja.team_id
-      ) = (select count(*) from criteria where stage = 'round1')
-    ) done
-  ) as completed_assignments;
-
 -- ============================================================
 -- ROW LEVEL SECURITY
 -- This app reads/writes mostly through the anon key from the browser, gated by
 -- application logic (no login walls for a one-day hackathon). Lock down the
 -- sensitive bits: only the admin route (using the service role key) can change
--- settings, create judge_assignments, or edit criteria/teams in bulk.
+-- settings or edit criteria/teams in bulk.
 -- ============================================================
 
 alter table teams enable row level security;
 alter table people enable row level security;
-alter table judge_assignments enable row level security;
 alter table criteria enable row level security;
 alter table scores enable row level security;
 alter table final_votes enable row level security;
@@ -152,7 +130,6 @@ alter table settings enable row level security;
 -- Public can read everything needed to render the app
 create policy "public read teams" on teams for select using (true);
 create policy "public read people" on people for select using (true);
-create policy "public read assignments" on judge_assignments for select using (true);
 create policy "public read criteria" on criteria for select using (true);
 create policy "public read scores" on scores for select using (true);
 create policy "public read final_votes" on final_votes for select using (true);
@@ -166,7 +143,7 @@ create policy "judges can update their own scores" on scores for update using (t
 create policy "anyone can cast a final vote" on final_votes for insert with check (true);
 create policy "voters can change their final vote" on final_votes for update using (true);
 
--- Everything else (settings changes, assignments, criteria edits, team top5/rank flags)
--- is written exclusively via /api/admin/* routes using the SUPABASE_SERVICE_ROLE_KEY,
+-- Everything else (settings changes, criteria edits, team top5/rank flags) is
+-- written exclusively via /api/admin/* routes using the SUPABASE_SERVICE_ROLE_KEY,
 -- which bypasses RLS. No public insert/update policies are defined for those on
 -- purpose — do not add "public update settings" etc.

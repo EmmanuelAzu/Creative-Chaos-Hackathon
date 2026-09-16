@@ -166,16 +166,6 @@ export default function AdminDashboard() {
           </ActionButton>
         </Section>
 
-        <Section title="Assign judges to teams">
-          <p className="text-sm text-ink/60 mb-3">
-            Distributes all registered judges evenly across all teams. Safe to
-            re-run after late judge sign-ups.
-          </p>
-          <ActionButton onClick={() => call("/api/admin/assign-judges", { judgesPerTeam: 3 })}>
-            Auto-assign (3 per team)
-          </ActionButton>
-        </Section>
-
         <Section title="Round 1 leaderboard">
           <label className="flex items-center gap-2 text-sm mb-3">
             <input
@@ -190,7 +180,7 @@ export default function AdminDashboard() {
             rows={round1.map((r) => ({
               name: r.team_name,
               score: r.aggregate_score,
-              detail: `${r.judges_scored}/${r.judges_assigned} judges`,
+              detail: `${r.judges_scored} judge${r.judges_scored === 1 ? "" : "s"} scored`,
             }))}
           />
         </Section>

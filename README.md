@@ -10,7 +10,7 @@ supabase/schema.sql        → run this once in Supabase to create everything
 src/app/page.tsx           → landing / role picker
 src/app/register/*         → participant, judge, committee sign-up
 src/app/team/[id]          → a team's printable QR code
-src/app/judge/[id]         → a judge's assigned-teams dashboard
+src/app/judge/[id]         → a judge's scan-a-team-to-grade-it dashboard
 src/app/judge/[id]/score/  → the grading screen (dropdown + optional camera scan)
 src/app/leaderboard        → public leaderboard (gated by an admin toggle)
 src/app/final/vote         → shared QR page everyone scores the top 5 on
@@ -25,7 +25,7 @@ src/app/api/admin/*        → server-only actions (service role key)
 2. Open the SQL editor, paste in `supabase/schema.sql`, run it. This creates
    every table, the two aggregation views, and locks down row-level security
    so the public (anon) key can only register people, submit scores, and cast
-   votes — not touch settings or assignments.
+   votes — not touch settings.
 3. From **Project Settings → API**, grab the project URL, the `anon` public
    key, and the `service_role` key (keep the service role key secret).
 
@@ -60,19 +60,17 @@ long as the four env vars above are set.
    - Paste your team-name CSV into "Import teams from CSV".
    - Add round-1 criteria (e.g. "Innovation", "Execution", "Pitch" — each
      with a max score).
-   - Once judges have registered at `/register/judge`, click
-     "Auto-assign (3 per team)" to split them across teams. Re-run any time
-     more judges show up.
 2. **Check-in** — point participants to `/register/participant`. Each team
    lands on `/team/[id]` with a QR code — get that on a phone or printed
    card at their table.
-3. **Judging** — judges register at `/register/judge` and are dropped
-   straight into their panel. They pick a team from the dropdown (or tap
-   "Scan QR" to jump straight to it) and score each criterion with a
-   slider.
-4. **Leaderboard** — stays hidden on `/leaderboard` until every assigned
-   judge finishes every assigned team, or you flip "Make leaderboard public
-   now" in `/admin` yourself.
+3. **Judging** — judges register at `/register/judge` and land on a scan-first
+   dashboard. There's no fixed judge-per-team assignment: a judge scans
+   whichever team's QR code is in front of them (or picks the team from a
+   dropdown if a camera isn't available), scores each criterion with a
+   slider, and can move on to any other team the same way. A team's score is
+   simply the average across however many judges end up scoring it.
+4. **Leaderboard** — stays hidden on `/leaderboard` until you flip "Make
+   leaderboard public now" in `/admin`.
 5. **Top 5 & finals** — in `/admin`, click "Promote top 5", then "Open final
    voting". Share `/final/vote` as one QR code to the whole room — judges,
    participants, committee. Judge scores count at 1.2× weight (edit
@@ -101,8 +99,8 @@ time it's opened):
 - Generation happens in `src/lib/certificate.ts` (layout/wording) and is
   served by `src/app/api/certificate/[personId]/route.ts`. It's built with
   `pdf-lib`, so nothing external to install — it runs fine on Vercel.
-- Sponsor logos (bbd, Boxfusion, OfferZen) and the event branding are baked
-  into the certificate footer/header automatically from `public/`.
+- Sponsor logos (bbd, Boxfusion, OfferZen, Enactus) and the event branding
+  are baked into the certificate footer/header automatically from `public/`.
 
 ## Notes & things you may want to adjust
 
@@ -122,5 +120,6 @@ time it's opened):
   deep navy `#12143D` with the neon-green `#B6FF3D` accent — instead of the
   plainer teal-only palette from the first draft, so the app now matches the
   poster/theme rather than just the logo.
-- `judgesPerTeam` (default 3) and the criteria you add are the only two
-  "judging design" decisions baked in — everything else reads from the DB.
+- There's no fixed judge-per-team assignment — a team's `round1_team_scores.judges_scored`
+  is just however many judges have scanned and scored it so far, and the
+  aggregate is an average across whoever that ends up being.
