@@ -149,8 +149,8 @@ export async function renderCertificatePdf(
       width: logoDim.width,
       height: logoDim.height,
     });
-    drawText(page, "WITS DEVELOPER SOCIETY", pt(232, 100), 12.5, chakraSemi, white);
-    drawTracked(page, "ORGANIZED BY", pt(232, 122), 9, rajSemi, cyan, 1.2);
+    drawText(page, "WITS DEVELOPER SOCIETY", pt(232, 175), 12.5, chakraSemi, white);
+    drawTracked(page, "ORGANIZED BY", pt(232, 197), 9, rajSemi, cyan, 1.2);
   } catch {
     /* logo optional */
   }
