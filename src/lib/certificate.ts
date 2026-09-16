@@ -133,9 +133,11 @@ export async function renderCertificatePdf(
   try {
     const logoBytes = readPublic("logo-icon.png");
     const logo = await doc.embedPng(logoBytes);
-    // chip in image-space px, converted to pt at draw time — chip spans imgX 90-210, imgY 60-180
-    const chipTopLeft = pt(90, 60);
-    const chipBottomRight = pt(210, 180);
+    // chip in image-space px, converted to pt at draw time.
+    // Base span was imgX 90-210, imgY 60-180 (120x120, centered at 150,120);
+    // scaled 1.2x (144x144, half-size 72) and shifted 3 line-heights (66px) down.
+    const chipTopLeft = pt(78, 114);
+    const chipBottomRight = pt(222, 258);
     const chipW = chipBottomRight.x - chipTopLeft.x;
     const chipH = chipTopLeft.y - chipBottomRight.y;
     page.drawRectangle({ x: chipTopLeft.x, y: chipBottomRight.y, width: chipW, height: chipH, color: white });
@@ -147,31 +149,31 @@ export async function renderCertificatePdf(
       width: logoDim.width,
       height: logoDim.height,
     });
-    drawText(page, "WITS DEVELOPER SOCIETY", pt(232, 100), 11, chakraSemi, white);
-    drawTracked(page, "ORGANIZED BY", pt(232, 122), 7.5, rajSemi, cyan, 1.2);
+    drawText(page, "WITS DEVELOPER SOCIETY", pt(232, 100), 12.5, chakraSemi, white);
+    drawTracked(page, "ORGANIZED BY", pt(232, 122), 9, rajSemi, cyan, 1.2);
   } catch {
     /* logo optional */
   }
-  drawTextRight(page, "CREATIVE CHAOS HACKATHON 2026", pt(1890, 100), 10.5, chakraSemi, white);
-  drawTextRight(page, "FINALS DAY · MSL", pt(1890, 122), 8, rajSemi, muted);
+  drawTextRight(page, "CREATIVE CHAOS HACKATHON 2026", pt(1890, 100), 12, chakraSemi, white);
+  drawTextRight(page, "FINALS DAY · MSL", pt(1890, 122), 9.5, rajSemi, muted);
 
   // ---------- headline ----------
   const certer = pt(1000, 250);
-  drawTrackedCentered(page, "CERTIFICATE", certer.x, certer.y, 34, chakraBold, white, 1.5);
+  drawTrackedCentered(page, "CERTIFICATE", certer.x, certer.y, 35.5, chakraBold, white, 1.5);
   const suber = pt(1000, 345);
-  drawTrackedCentered(page, tier.subtitle, suber.x, suber.y, 15, chakraSemi, cyan, 4);
+  drawTrackedCentered(page, tier.subtitle, suber.x, suber.y, 16.5, chakraSemi, cyan, 4);
 
   // ---------- body ----------
   const lead = pt(1000, 515);
-  centerText(page, "This certifies that", lead.x, lead.y, 12.5, rajMed, muted);
+  centerText(page, "This certifies that", lead.x, lead.y, 14, rajMed, muted);
 
   const namePt = pt(1000, 600);
-  centerText(page, person.full_name.toUpperCase(), namePt.x, namePt.y, 30, chakraBold, accent);
+  centerText(page, person.full_name.toUpperCase(), namePt.x, namePt.y, 31.5, chakraBold, accent);
 
   let cursorImgY = 655;
   if (team) {
     const teamPt = pt(1000, cursorImgY);
-    centerText(page, `of team “${team.name}”`, teamPt.x, teamPt.y, 13, rajSemi, cyan);
+    centerText(page, `of team “${team.name}”`, teamPt.x, teamPt.y, 14.5, rajSemi, cyan);
     cursorImgY += 55;
   } else {
     cursorImgY += 10;
@@ -181,7 +183,7 @@ export async function renderCertificatePdf(
     person.role === "participant"
       ? `took part in the Creative Chaos Hackathon 2026 from the 13th to the 19th of September 2026, ${tier.resultLine}.`
       : `${tier.resultLine} at the Creative Chaos Hackathon 2026, held from the 13th to the 19th of September 2026.`;
-  cursorImgY = wrapCentered(page, bodySentence, 1000, cursorImgY, 620, 11.5, rajMed, muted, 22);
+  cursorImgY = wrapCentered(page, bodySentence, 1000, cursorImgY, 620, 13, rajMed, muted, 22);
 
   // ---------- seal ----------
   const sealCenterImgY = 890;
@@ -202,8 +204,8 @@ export async function renderCertificatePdf(
   drawTracked(
     page,
     "WITS DEVELOPER SOCIETY × CREATIVE CHAOS 2026 ORGANIZING COMMITTEE",
-    { x: captionPt.x - trackedWidth("WITS DEVELOPER SOCIETY × CREATIVE CHAOS 2026 ORGANIZING COMMITTEE", 8.5, chakraSemi, 0.6) / 2, y: captionPt.y },
-    8.5,
+    { x: captionPt.x - trackedWidth("WITS DEVELOPER SOCIETY × CREATIVE CHAOS 2026 ORGANIZING COMMITTEE", 10, chakraSemi, 0.6) / 2, y: captionPt.y },
+    10,
     chakraSemi,
     white,
     0.6
@@ -214,8 +216,8 @@ export async function renderCertificatePdf(
   drawTracked(
     page,
     "WITH THANKS TO OUR SPONSORS",
-    { x: labelPt.x - trackedWidth("WITH THANKS TO OUR SPONSORS", 9, chakraSemi, 1.2) / 2, y: labelPt.y },
-    9,
+    { x: labelPt.x - trackedWidth("WITH THANKS TO OUR SPONSORS", 10.5, chakraSemi, 1.2) / 2, y: labelPt.y },
+    10.5,
     chakraSemi,
     muted,
     1.2
