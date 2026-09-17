@@ -106,6 +106,19 @@ function pt(imgX: number, imgY: number) {
   return { x: imgX * SCALE, y: PAGE_H - imgY * SCALE };
 }
 
+// The two placeholder fields baked into the template ("NAME SURNAME" and
+// "team name") measured on the 2000x1414 template PNG (image-space px).
+// ERASE covers the placeholder text (plus a small margin) so it can be
+// painted over before the real value is drawn in the same spot.
+const NAME_ERASE = { x0: 600, y0: 560, x1: 1450, y1: 700 };
+const NAME_CENTER_X = 1022;
+const NAME_BASELINE_Y = 668;
+const TEAM_ERASE = { x0: 650, y0: 745, x1: 1370, y1: 797 };
+const TEAM_CENTER_X = 1010;
+const TEAM_BASELINE_Y = 790;
+// Sampled from the template's background right around both placeholders.
+const ERASE_FILL = rgb(0 / 255, 5 / 255, 11 / 255);
+
 export async function renderCertificatePdf(
   person: Person,
   team: Team | null,
@@ -119,211 +132,61 @@ export async function renderCertificatePdf(
   page.drawImage(bg, { x: 0, y: 0, width: PAGE_W, height: PAGE_H });
 
   const chakraBold = await doc.embedFont(readPublic("fonts", "ChakraPetch-Bold.ttf"), { subset: true });
-  const chakraSemi = await doc.embedFont(readPublic("fonts", "ChakraPetch-SemiBold.ttf"), { subset: true });
   // Rajdhani's glyph tables corrupt under pdf-lib's subsetter (multi-script font) — embed in full.
-  const rajMed = await doc.embedFont(readPublic("fonts", "Rajdhani-Medium.ttf"), { subset: false });
   const rajSemi = await doc.embedFont(readPublic("fonts", "Rajdhani-SemiBold.ttf"), { subset: false });
 
-  const white = hexToRgb(HEX.white);
-  const muted = hexToRgb(HEX.muted);
   const cyan = hexToRgb(HEX.cyan);
   const accent = hexToRgb(tier.accentHex);
 
-  // ---------- header: Wits Developer Society (left) + event mark (right) ----------
-  try {
-    const logoBytes = readPublic("logo-icon.png");
-    const logo = await doc.embedPng(logoBytes);
-    // chip in image-space px, converted to pt at draw time.
-    // Base span was imgX 90-210, imgY 60-180 (120x120, centered at 150,120);
-    // scaled 1.2x (144x144, half-size 72) and shifted 3 line-heights (66px) down.
-    const chipTopLeft = pt(78, 114);
-    const chipBottomRight = pt(222, 258);
-    const chipW = chipBottomRight.x - chipTopLeft.x;
-    const chipH = chipTopLeft.y - chipBottomRight.y;
-    page.drawRectangle({ x: chipTopLeft.x, y: chipBottomRight.y, width: chipW, height: chipH, color: white });
-    const iconPad = chipW * 0.16;
-    const logoDim = logo.scale((chipW - iconPad * 2) / logo.width);
-    page.drawImage(logo, {
-      x: chipTopLeft.x + (chipW - logoDim.width) / 2,
-      y: chipBottomRight.y + (chipH - logoDim.height) / 2,
-      width: logoDim.width,
-      height: logoDim.height,
-    });
-    drawText(page, "WITS DEVELOPER SOCIETY", pt(232, 175), 12.5, chakraSemi, white);
-    drawTracked(page, "ORGANIZED BY", pt(232, 197), 9, rajSemi, cyan, 1.2);
-  } catch {
-    /* logo optional */
-  }
-  drawTextRight(page, "CREATIVE CHAOS HACKATHON 2026", pt(1890, 100), 12, chakraSemi, white);
-  drawTextRight(page, "FINALS DAY · MSL", pt(1890, 122), 9.5, rajSemi, muted);
+  // ---------- name ----------
+  eraseImgRect(page, NAME_ERASE);
+  const namePt = pt(NAME_CENTER_X, NAME_BASELINE_Y);
+  const nameMaxWidthPt = (NAME_ERASE.x1 - NAME_ERASE.x0) * SCALE * 0.94;
+  drawFitCentered(page, person.full_name.toUpperCase(), namePt.x, namePt.y, 31.5, chakraBold, accent, nameMaxWidthPt);
 
-  // ---------- headline ----------
-  const certer = pt(1000, 250);
-  drawTrackedCentered(page, "CERTIFICATE", certer.x, certer.y, 35.5, chakraBold, white, 1.5);
-  const suber = pt(1000, 345);
-  drawTrackedCentered(page, tier.subtitle, suber.x, suber.y, 16.5, chakraSemi, cyan, 4);
-
-  // ---------- body ----------
-  const lead = pt(1000, 515);
-  centerText(page, "This certifies that", lead.x, lead.y, 14, rajMed, muted);
-
-  const namePt = pt(1000, 600);
-  centerText(page, person.full_name.toUpperCase(), namePt.x, namePt.y, 31.5, chakraBold, accent);
-
-  let cursorImgY = 655;
+  // ---------- team ----------
+  eraseImgRect(page, TEAM_ERASE);
   if (team) {
-    const teamPt = pt(1000, cursorImgY);
-    centerText(page, `of team “${team.name}”`, teamPt.x, teamPt.y, 14.5, rajSemi, cyan);
-    cursorImgY += 55;
-  } else {
-    cursorImgY += 10;
-  }
-
-  const bodySentence =
-    person.role === "participant"
-      ? `took part in the Creative Chaos Hackathon 2026 from the 13th to the 19th of September 2026, ${tier.resultLine}.`
-      : `${tier.resultLine} at the Creative Chaos Hackathon 2026, held from the 13th to the 19th of September 2026.`;
-  cursorImgY = wrapCentered(page, bodySentence, 1000, cursorImgY, 620, 13, rajMed, muted, 22);
-
-  // ---------- seal ----------
-  const sealCenterImgY = 890;
-  const sealCenter = pt(1000, sealCenterImgY);
-  const sealR = 30;
-  page.drawCircle({ x: sealCenter.x, y: sealCenter.y, size: sealR, borderColor: cyan, borderWidth: 1, borderOpacity: 0.4 });
-  page.drawCircle({ x: sealCenter.x, y: sealCenter.y, size: sealR - 8, borderColor: cyan, borderWidth: 0.6, borderOpacity: 0.25 });
-  try {
-    const kudu = await doc.embedPng(readPublic("logo-icon.png"));
-    const badgeR = 24;
-    page.drawCircle({ x: sealCenter.x, y: sealCenter.y, size: badgeR, color: white });
-    const kd = kudu.scale((badgeR * 1.5) / kudu.width);
-    page.drawImage(kudu, { x: sealCenter.x - kd.width / 2, y: sealCenter.y - kd.height / 2, width: kd.width, height: kd.height });
-  } catch {
-    /* optional */
-  }
-  const captionPt = pt(1000, 1000);
-  drawTracked(
-    page,
-    "WITS DEVELOPER SOCIETY × CREATIVE CHAOS 2026 ORGANIZING COMMITTEE",
-    { x: captionPt.x - trackedWidth("WITS DEVELOPER SOCIETY × CREATIVE CHAOS 2026 ORGANIZING COMMITTEE", 10, chakraSemi, 0.6) / 2, y: captionPt.y },
-    10,
-    chakraSemi,
-    white,
-    0.6
-  );
-
-  // ---------- sponsors ----------
-  const labelPt = pt(1000, 1045);
-  drawTracked(
-    page,
-    "WITH THANKS TO OUR SPONSORS",
-    { x: labelPt.x - trackedWidth("WITH THANKS TO OUR SPONSORS", 10.5, chakraSemi, 1.2) / 2, y: labelPt.y },
-    10.5,
-    chakraSemi,
-    muted,
-    1.2
-  );
-
-  const sponsorFiles: { file: string; kind: "png" | "jpg" }[] = [
-    { file: "sponsors/bbd.png", kind: "png" },
-    { file: "sponsors/boxfusion.png", kind: "png" },
-    { file: "sponsors/offerzen.jpg", kind: "jpg" },
-    { file: "sponsors/enactus.png", kind: "png" },
-  ];
-  const targetH = 30;
-  const gap = 22;
-  const chipPad = 14;
-  const embedded: { img: any; w: number; h: number }[] = [];
-  for (const s of sponsorFiles) {
-    try {
-      const bytes = readPublic(s.file);
-      const img = s.kind === "png" ? await doc.embedPng(bytes) : await doc.embedJpg(bytes);
-      const scale = targetH / img.height;
-      embedded.push({ img, w: img.width * scale, h: targetH });
-    } catch {
-      /* skip missing sponsor asset */
-    }
-  }
-  const totalW = embedded.reduce((s, e) => s + e.w + chipPad * 2, 0) + gap * Math.max(embedded.length - 1, 0);
-  const rowCenter = pt(1000, 1110);
-  let cursorX = rowCenter.x - totalW / 2;
-  for (const e of embedded) {
-    const chipW = e.w + chipPad * 2;
-    page.drawRectangle({ x: cursorX, y: rowCenter.y - targetH / 2 - 10, width: chipW, height: targetH + 20, color: white });
-    page.drawImage(e.img, { x: cursorX + chipPad, y: rowCenter.y - e.h / 2, width: e.w, height: e.h });
-    cursorX += chipW + gap;
+    const teamPt = pt(TEAM_CENTER_X, TEAM_BASELINE_Y);
+    const teamMaxWidthPt = (TEAM_ERASE.x1 - TEAM_ERASE.x0) * SCALE * 0.94;
+    drawFitCentered(page, `Of team “${team.name}”`, teamPt.x, teamPt.y, 14.5, rajSemi, cyan, teamMaxWidthPt);
   }
 
   return doc.save();
 }
 
-function drawText(page: PDFPage, text: string, p: { x: number; y: number }, size: number, font: PDFFont, color: any) {
-  page.drawText(text, { x: p.x, y: p.y, size, font, color });
+/** Paints over a region of the template (image-space px) with the sampled background fill. */
+function eraseImgRect(page: PDFPage, rect: { x0: number; y0: number; x1: number; y1: number }) {
+  const topLeft = pt(rect.x0, rect.y0);
+  const bottomRight = pt(rect.x1, rect.y1);
+  page.drawRectangle({
+    x: topLeft.x,
+    y: bottomRight.y,
+    width: bottomRight.x - topLeft.x,
+    height: topLeft.y - bottomRight.y,
+    color: ERASE_FILL,
+  });
 }
 
-function drawTextRight(page: PDFPage, text: string, p: { x: number; y: number }, size: number, font: PDFFont, color: any) {
-  const w = font.widthOfTextAtSize(text, size);
-  page.drawText(text, { x: p.x - w, y: p.y, size, font, color });
+/** Centered text that shrinks to fit maxWidthPt, so long names/team names never overflow the template's placeholder box. */
+function drawFitCentered(
+  page: PDFPage,
+  text: string,
+  cx: number,
+  y: number,
+  startSize: number,
+  font: PDFFont,
+  color: any,
+  maxWidthPt: number
+) {
+  let size = startSize;
+  while (font.widthOfTextAtSize(text, size) > maxWidthPt && size > 8) size -= 0.5;
+  centerText(page, text, cx, y, size, font, color);
 }
 
 function centerText(page: PDFPage, text: string, cx: number, y: number, size: number, font: PDFFont, color: any) {
   const w = font.widthOfTextAtSize(text, size);
   page.drawText(text, { x: cx - w / 2, y, size, font, color });
-}
-
-/** Draws text with manual letter-spacing (pdf-lib has no native tracking support). */
-function drawTracked(page: PDFPage, text: string, p: { x: number; y: number }, size: number, font: PDFFont, color: any, tracking: number) {
-  let x = p.x;
-  for (const ch of text) {
-    page.drawText(ch, { x, y: p.y, size, font, color });
-    x += font.widthOfTextAtSize(ch, size) + tracking;
-  }
-}
-
-function trackedWidth(text: string, size: number, font: PDFFont, tracking: number) {
-  let w = 0;
-  for (const ch of text) w += font.widthOfTextAtSize(ch, size) + tracking;
-  return w - tracking;
-}
-
-function drawTrackedCentered(page: PDFPage, text: string, cx: number, y: number, size: number, font: PDFFont, color: any, tracking: number) {
-  const w = trackedWidth(text, size, font, tracking);
-  drawTracked(page, text, { x: cx - w / 2, y }, size, font, color, tracking);
-}
-
-/** Wraps a sentence to fit maxWidthPt (in image-space px), centered, returning the next free image-y. */
-function wrapCentered(
-  page: PDFPage,
-  text: string,
-  centerImgX: number,
-  startImgY: number,
-  maxWidthImg: number,
-  size: number,
-  font: PDFFont,
-  color: any,
-  lineHeightImg: number
-): number {
-  const words = text.split(" ");
-  const maxWidthPt = maxWidthImg * SCALE;
-  const lines: string[] = [];
-  let line = "";
-  for (const word of words) {
-    const test = line ? `${line} ${word}` : word;
-    if (font.widthOfTextAtSize(test, size) > maxWidthPt && line) {
-      lines.push(line);
-      line = word;
-    } else {
-      line = test;
-    }
-  }
-  if (line) lines.push(line);
-
-  let imgY = startImgY;
-  for (const l of lines) {
-    const p = pt(centerImgX, imgY);
-    centerText(page, l, p.x, p.y, size, font, color);
-    imgY += lineHeightImg;
-  }
-  return imgY;
 }
 
 function hexToRgb(hex: string) {
