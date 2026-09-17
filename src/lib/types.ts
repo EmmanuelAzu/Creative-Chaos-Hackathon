@@ -44,6 +44,7 @@ export interface FinalVote {
   id: string;
   voter_id: string;
   team_id: string;
+  criteria_id: string;
   value: number;
   weight: number;
 }

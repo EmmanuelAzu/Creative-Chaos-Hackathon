@@ -58,26 +58,37 @@ long as the four env vars above are set.
 
 1. **Before doors open** — go to `/admin`, unlock with your key:
    - Paste your team-name CSV into "Import teams from CSV".
-   - Add round-1 criteria (e.g. "Innovation", "Execution", "Pitch" — each
-     with a max score).
+   - Round-1 criteria (the published Judging Rubric, 100 points across 4
+     categories) and final-round criteria (the Top 5 Team Voting Criteria,
+     100 points across 3 categories) are seeded automatically by
+     `supabase/schema.sql` — add/remove more from "Judging criteria" if
+     you need to adjust them.
 2. **Check-in** — point participants to `/register/participant`. Each team
    lands on `/team/[id]` with a QR code — get that on a phone or printed
    card at their table.
-3. **Judging** — judges register at `/register/judge` and land on a scan-first
-   dashboard. There's no fixed judge-per-team assignment: a judge scans
-   whichever team's QR code is in front of them (or picks the team from a
-   dropdown if a camera isn't available), scores each criterion with a
-   slider, and can move on to any other team the same way. A team's score is
-   simply the average across however many judges end up scoring it.
-4. **Leaderboard** — stays hidden on `/leaderboard` until you flip "Make
-   leaderboard public now" in `/admin`.
-5. **Top 5 & finals** — in `/admin`, click "Promote top 5", then "Open final
-   voting". Share `/final/vote` as one QR code to the whole room — judges,
-   participants, committee. Judge scores count at 1.2× weight (edit
-   `JUDGE_WEIGHT` in `src/app/final/vote/page.tsx` to change that).
-6. **The reveal** — put `/final/reveal` up on the big screen. Back in
-   `/admin`, click "Reveal next place" once per announcement: 5th, 4th,
-   3rd, runner-up, then winner, each with its own animated entrance.
+3. **Judging** — judges register at `/register/judge` and land on a briefing
+   page (the full rubric, pulled live from the database) with a "Start
+   judging" button. There's no fixed judge-per-team assignment: a judge
+   scans whichever team's QR code is in front of them (or picks the team
+   from a dropdown if a camera isn't available), scores each sub-criterion
+   with a slider, and can move on to any other team the same way. A team's
+   score is the average of each judge's 0-100 total across however many
+   judges end up scoring it.
+4. **Leaderboard** — `/leaderboard` auto-unlocks into a blurred board once
+   half the teams are judged, then stays blurred until you reveal it.
+5. **Top 10 reveal** — in `/admin`, under "Round 1 reveal", click "Reveal
+   next place" with `/leaderboard` up on the big screen — it reveals 10th
+   through 1st, one at a time, highlighting the top 5 once they're up.
+6. **Top 5 & finals** — click "Promote top 5", then "Open final voting".
+   Each top-5 team's `/team/[id]` page grows a second QR code (a plain
+   scannable URL, no app needed) straight to `/final/vote/[id]` — put that
+   up at their table. Judge scores count at 1.2× weight (edit
+   `JUDGE_WEIGHT` in `src/app/final/vote/[teamId]/page.tsx` to change
+   that).
+7. **The reveal** — put `/final/reveal` up on the big screen. Back in
+   `/admin`, under "Final scores & reveal", click "Reveal next place" once
+   per announcement: 5th, 4th, 3rd, runner-up, then winner, each with its
+   own animated entrance.
 
 ## 6. Certificates
 

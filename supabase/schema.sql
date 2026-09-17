@@ -65,10 +65,11 @@ create table final_votes (
   id uuid primary key default gen_random_uuid(),
   voter_id uuid not null references people(id) on delete cascade,
   team_id uuid not null references teams(id) on delete cascade,
-  value numeric not null,        -- raw 1-10 score the voter gave
+  criteria_id uuid not null references criteria(id) on delete cascade,
+  value numeric not null,
   weight numeric not null default 1,  -- 1 for participants/committee, e.g. 1.2 for judges
   created_at timestamptz not null default now(),
-  unique (voter_id, team_id)
+  unique (voter_id, team_id, criteria_id)
 );
 
 -- ---------- SINGLE-ROW ADMIN SETTINGS ----------
@@ -96,6 +97,12 @@ insert into criteria (stage, category, name, prompt, max_score, sort_order) valu
   ('round1', 'Presentation & Demo', 'Visual & design polish', null, 3, 11),
   ('round1', 'Teamwork & Collaboration', 'Role distribution & contribution', null, 20, 12);
 
+-- ---------- FINAL ROUND CRITERIA (Top 5 Team Voting Criteria — 100 points) ----------
+insert into criteria (stage, category, name, prompt, max_score, sort_order) values
+  ('final', null, 'Quality of Presentation', 'How clearly and confidently the team communicates the problem, solution, and demo in the time given', 30, 1),
+  ('final', null, 'Impact Potential', 'How real the problem is and how much value the solution could create if it existed beyond the hackathon', 35, 2),
+  ('final', null, 'Solution Implementation', 'How complete and functional the built solution actually is — not just the idea, but what was actually shipped', 35, 3);
+
 -- ============================================================
 -- VIEWS for aggregation (recompute on read — fine at hackathon scale)
 -- ============================================================
@@ -119,15 +126,20 @@ left join (
 left join scores s on s.team_id = t.id
 group by t.id, t.name;
 
--- Final stage: weighted average per team
+-- Final stage: each voter's total across the 3 criteria (out of 100), then a
+-- weight-adjusted average across voters (judges count 1.2x).
 create view final_team_scores as
 select
   t.id as team_id,
   t.name as team_name,
-  count(fv.id) as vote_count,
-  round(sum(fv.value * fv.weight) / nullif(sum(fv.weight), 0), 2) as weighted_score
+  count(distinct per_voter.voter_id) as vote_count,
+  round(sum(per_voter.voter_total * per_voter.weight) / nullif(sum(per_voter.weight), 0), 2) as weighted_score
 from teams t
-left join final_votes fv on fv.team_id = t.id
+left join (
+  select team_id, voter_id, sum(value) as voter_total, max(weight) as weight
+  from final_votes
+  group by team_id, voter_id
+) per_voter on per_voter.team_id = t.id
 where t.is_top5 = true
 group by t.id, t.name;
 
