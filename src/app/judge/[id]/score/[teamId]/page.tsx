@@ -65,6 +65,14 @@ export default function ScoreTeam({
     router.push(`/judge/${params.id}/score/${teamId}`);
   }
 
+  const grouped = new Map<string, Criteria[]>();
+  for (const c of criteria) {
+    const key = c.category ?? "Other";
+    grouped.set(key, [...(grouped.get(key) ?? []), c]);
+  }
+  const total = criteria.reduce((s, c) => s + (values[c.id] ?? 0), 0);
+  const totalMax = criteria.reduce((s, c) => s + c.max_score, 0);
+
   async function handleSave() {
     setError(null);
     const rows = criteria.map((c) => ({
@@ -105,34 +113,62 @@ export default function ScoreTeam({
         </div>
         <ScanTeamButton onScan={switchTeam} label="Scan a different team's QR" className="mb-8" />
 
-        <div className="flex flex-col gap-6">
-          {criteria.map((c) => (
-            <div key={c.id}>
-              <div className="flex items-baseline justify-between mb-2">
-                <label className="text-ink">{c.name}</label>
-                <span className="font-mono text-sm text-teal">
-                  {values[c.id] ?? 0} / {c.max_score}
-                </span>
+        <div className="flex flex-col gap-8">
+          {Array.from(grouped.entries()).map(([category, items]) => {
+            const subtotal = items.reduce((s, c) => s + (values[c.id] ?? 0), 0);
+            const subtotalMax = items.reduce((s, c) => s + c.max_score, 0);
+            return (
+              <div key={category}>
+                <div className="flex items-baseline justify-between mb-3 border-b border-line pb-1">
+                  <h2 className="font-mono text-xs text-teal">{category.toUpperCase()}</h2>
+                  <span className="font-mono text-xs text-ink/50">
+                    {subtotal} / {subtotalMax}
+                  </span>
+                </div>
+                <div className="flex flex-col gap-5">
+                  {items.map((c) => (
+                    <div key={c.id}>
+                      <div className="flex items-baseline justify-between mb-1">
+                        <label className="text-ink">{c.name}</label>
+                        <span className="font-mono text-sm text-teal">
+                          {values[c.id] ?? 0} / {c.max_score}
+                        </span>
+                      </div>
+                      {c.prompt && (
+                        <p className="text-ink/50 text-xs mb-2">Ask: "{c.prompt}"</p>
+                      )}
+                      <input
+                        type="range"
+                        min={0}
+                        max={c.max_score}
+                        step={1}
+                        value={values[c.id] ?? 0}
+                        onChange={(e) =>
+                          setValues((v) => ({ ...v, [c.id]: Number(e.target.value) }))
+                        }
+                        className="w-full accent-teal"
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
-              <input
-                type="range"
-                min={0}
-                max={c.max_score}
-                step={1}
-                value={values[c.id] ?? 0}
-                onChange={(e) =>
-                  setValues((v) => ({ ...v, [c.id]: Number(e.target.value) }))
-                }
-                className="w-full accent-teal"
-              />
-            </div>
-          ))}
+            );
+          })}
           {criteria.length === 0 && (
             <p className="text-ink/50 font-mono text-sm">
               No round 1 criteria set up yet — add them from the admin panel.
             </p>
           )}
         </div>
+
+        {criteria.length > 0 && (
+          <div className="flex items-baseline justify-between mt-6 pt-4 border-t border-line">
+            <span className="font-mono text-xs text-ink/50">TOTAL</span>
+            <span className="font-mono text-lg text-teal">
+              {total} / {totalMax}
+            </span>
+          </div>
+        )}
 
         {error && <p className="text-sm text-red-700 mt-4">{error}</p>}
 

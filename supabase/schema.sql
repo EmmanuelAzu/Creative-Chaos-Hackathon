@@ -15,7 +15,8 @@ create table teams (
   name text not null unique,
   qr_token uuid not null default gen_random_uuid(),   -- encoded into the team's printed QR code
   is_top5 boolean not null default false,
-  final_rank int,                                     -- filled in only at reveal time (1-5)
+  round1_rank int,                                    -- frozen at the start of the round-1 reveal (1-10)
+  final_rank int,                                     -- filled in only at the final reveal time (1-5)
   created_at timestamptz not null default now()
 );
 
@@ -42,6 +43,8 @@ create table criteria (
   id uuid primary key default gen_random_uuid(),
   stage score_stage not null,
   name text not null,
+  category text,               -- groups sub-criteria under a category on the scoring form
+  prompt text,                 -- optional ready-made question for a judge to ask the team
   max_score int not null default 10,
   sort_order int not null default 0
 );
@@ -71,29 +74,45 @@ create table final_votes (
 -- ---------- SINGLE-ROW ADMIN SETTINGS ----------
 create table settings (
   id boolean primary key default true check (id),   -- enforces exactly one row
-  leaderboard_public boolean not null default false,
   round1_open boolean not null default true,
   final_stage_open boolean not null default false,
+  round1_reveal_step int not null default 0,  -- 0 = blurred/hidden, 1..10 = that many places revealed, from 10th down to 1st
   reveal_step int not null default 0   -- 0 = nothing revealed, 1..5 = that many ranks revealed, starting from 5th
 );
 insert into settings (id) values (true);
+
+-- ---------- ROUND 1 CRITERIA (the published Judging Rubric — 100 points) ----------
+insert into criteria (stage, category, name, prompt, max_score, sort_order) values
+  ('round1', 'Technical Implementation', 'Functionality & completeness', null, 12, 1),
+  ('round1', 'Technical Implementation', 'Code quality & architecture', 'Why did you design the system to work this way?', 10, 2),
+  ('round1', 'Technical Implementation', 'Technical depth & difficulty', 'Any third-party APIs or AI tools being used in your solution?', 8, 3),
+  ('round1', 'Solution Impact Potential', 'Problem-solution fit', 'Why did you choose this problem, and how did you land on this solution?', 8, 4),
+  ('round1', 'Solution Impact Potential', 'Real-world feasibility', 'What would it take to actually ship this?', 7, 5),
+  ('round1', 'Solution Impact Potential', 'Scalability & market potential', 'How would this scale to more users or other markets?', 5, 6),
+  ('round1', 'Solution Impact Potential', 'Originality & innovation', null, 5, 7),
+  ('round1', 'Presentation & Demo', 'Live demo quality', null, 10, 8),
+  ('round1', 'Presentation & Demo', 'Clarity of pitch & storytelling', null, 8, 9),
+  ('round1', 'Presentation & Demo', 'Q&A handling', null, 4, 10),
+  ('round1', 'Presentation & Demo', 'Visual & design polish', null, 3, 11),
+  ('round1', 'Teamwork & Collaboration', 'Role distribution & contribution', null, 20, 12);
 
 -- ============================================================
 -- VIEWS for aggregation (recompute on read — fine at hackathon scale)
 -- ============================================================
 
--- Round 1: each team's average score per judge, then averaged across judges.
--- There's no fixed judge-per-team assignment — judges score whichever teams
--- they scan, so this simply reflects however many have scored so far.
+-- Round 1: each team's total score (sub-criteria summed, out of 100) per judge,
+-- then averaged across judges. There's no fixed judge-per-team assignment —
+-- judges score whichever teams they scan, so this simply reflects however
+-- many have scored so far.
 create view round1_team_scores as
 select
   t.id as team_id,
   t.name as team_name,
   count(distinct s.judge_id) as judges_scored,
-  round(avg(per_judge.judge_avg), 2) as aggregate_score
+  round(avg(per_judge.judge_total), 2) as aggregate_score
 from teams t
 left join (
-  select team_id, judge_id, avg(value) as judge_avg
+  select team_id, judge_id, sum(value) as judge_total
   from scores
   group by team_id, judge_id
 ) per_judge on per_judge.team_id = t.id

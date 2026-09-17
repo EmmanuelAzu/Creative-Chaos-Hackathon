@@ -6,6 +6,7 @@ export interface Team {
   name: string;
   qr_token: string;
   is_top5: boolean;
+  round1_rank: number | null;
   final_rank: number | null;
   created_at: string;
 }
@@ -25,6 +26,8 @@ export interface Criteria {
   id: string;
   stage: ScoreStage;
   name: string;
+  category: string | null;
+  prompt: string | null;
   max_score: number;
   sort_order: number;
 }
@@ -46,9 +49,9 @@ export interface FinalVote {
 }
 
 export interface Settings {
-  leaderboard_public: boolean;
   round1_open: boolean;
   final_stage_open: boolean;
+  round1_reveal_step: number;
   reveal_step: number;
 }
 

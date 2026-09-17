@@ -6,6 +6,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { PageShell } from "@/components/PageShell";
 import { ScanTeamButton } from "@/components/ScanTeamButton";
+import type { Criteria } from "@/lib/types";
 
 interface Row {
   team_id: string;
@@ -14,9 +15,18 @@ interface Row {
   criteria_total: number;
 }
 
+const BANDS = [
+  { band: "Excellent", pct: "90–100%", meaning: "Best in the room; nothing meaningful missing" },
+  { band: "Good", pct: "75–89%", meaning: "Solid and mostly complete, minor gaps" },
+  { band: "Fair", pct: "60–74%", meaning: "Present but underdeveloped or partial" },
+  { band: "Poor", pct: "Below 60%", meaning: "Missing, broken, or not attempted" },
+];
+
 export default function JudgeDashboard({ params }: { params: { id: string } }) {
   const router = useRouter();
+  const [stage, setStage] = useState<"brief" | "judge">("brief");
   const [judgeName, setJudgeName] = useState("");
+  const [criteria, setCriteria] = useState<Criteria[]>([]);
   const [teams, setTeams] = useState<{ id: string; name: string }[]>([]);
   const [graded, setGraded] = useState<Row[]>([]);
   const [pickTeam, setPickTeam] = useState("");
@@ -35,16 +45,18 @@ export default function JudgeDashboard({ params }: { params: { id: string } }) {
       .maybeSingle();
     setJudgeName(judge?.full_name ?? "");
 
+    const { data: crit } = await supabase
+      .from("criteria")
+      .select("*")
+      .eq("stage", "round1")
+      .order("sort_order");
+    setCriteria((crit as Criteria[]) ?? []);
+
     const { data: allTeams } = await supabase.from("teams").select("id, name").order("name");
     setTeams(allTeams ?? []);
     if (allTeams?.length) setPickTeam(allTeams[0].id);
 
-    const { data: criteria } = await supabase
-      .from("criteria")
-      .select("id")
-      .eq("stage", "round1");
-    const criteriaTotal = criteria?.length ?? 0;
-
+    const criteriaTotal = crit?.length ?? 0;
     const { data: myScores } = await supabase
       .from("scores")
       .select("team_id, criteria_id, teams(name)")
@@ -71,10 +83,93 @@ export default function JudgeDashboard({ params }: { params: { id: string } }) {
     router.push(`/judge/${params.id}/score/${teamId}`);
   }
 
+  const grouped = new Map<string, Criteria[]>();
+  for (const c of criteria) {
+    const key = c.category ?? "Other";
+    grouped.set(key, [...(grouped.get(key) ?? []), c]);
+  }
+  const total = criteria.reduce((s, c) => s + c.max_score, 0);
+
+  if (stage === "brief") {
+    return (
+      <PageShell eyebrow={judgeName ? `JUDGE · ${judgeName.toUpperCase()}` : "JUDGE"}>
+        <div className="max-w-2xl">
+          <h1 className="text-3xl tracking-tight mb-2">Judging briefing</h1>
+          <p className="text-ink/60 mb-8">
+            Teams get 5 minutes to pitch/demo, then 2–3 minutes for you to
+            finalize scores. Judge for a finished, working solution — teams
+            had a full week.
+          </p>
+
+          {criteria.length === 0 ? (
+            <p className="text-ink/50 font-mono text-sm mb-8">
+              No round 1 criteria set up yet — check with the committee.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-6 mb-8">
+              {Array.from(grouped.entries()).map(([category, items]) => (
+                <div key={category} className="border border-line p-4 bg-white/40">
+                  <div className="flex items-baseline justify-between mb-3">
+                    <h2 className="text-lg">{category}</h2>
+                    <span className="font-mono text-xs text-teal">
+                      {items.reduce((s, c) => s + c.max_score, 0)} pts
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {items.map((c) => (
+                      <div key={c.id} className="flex items-start justify-between gap-4 text-sm">
+                        <div>
+                          <span className="text-ink">{c.name}</span>
+                          {c.prompt && (
+                            <p className="text-ink/50 text-xs mt-0.5">Ask: "{c.prompt}"</p>
+                          )}
+                        </div>
+                        <span className="font-mono text-ink/60 shrink-0">{c.max_score}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              <p className="font-mono text-xs text-ink/50">TOTAL: {total} PTS</p>
+            </div>
+          )}
+
+          <div className="border-t border-line pt-6 mb-8">
+            <h2 className="font-mono text-xs text-teal mb-3">SCORING BANDS</h2>
+            <div className="flex flex-col divide-y divide-line text-sm">
+              {BANDS.map((b) => (
+                <div key={b.band} className="flex items-center gap-4 py-2">
+                  <span className="w-20 shrink-0">{b.band}</span>
+                  <span className="font-mono text-xs text-ink/50 w-20 shrink-0">{b.pct}</span>
+                  <span className="text-ink/70">{b.meaning}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <button
+            onClick={() => setStage("judge")}
+            className="w-full bg-ink text-paper py-3 font-medium hover:bg-teal-deep transition-colors focus-ring"
+          >
+            Start judging
+          </button>
+        </div>
+      </PageShell>
+    );
+  }
+
   return (
     <PageShell eyebrow={judgeName ? `JUDGE · ${judgeName.toUpperCase()}` : "JUDGE"}>
       <div className="max-w-lg">
-        <h1 className="text-3xl tracking-tight mb-2">Grade a team</h1>
+        <div className="flex items-center justify-between mb-2">
+          <h1 className="text-3xl tracking-tight">Grade a team</h1>
+          <button
+            onClick={() => setStage("brief")}
+            className="font-mono text-xs text-teal hover:text-teal-deep focus-ring"
+          >
+            ← briefing
+          </button>
+        </div>
         <p className="text-ink/60 mb-6">
           Scan a team's QR code to pull up their grading form, or pick a team
           below if you don't have a camera handy.
