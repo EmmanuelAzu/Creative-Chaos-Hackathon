@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 import { PageShell } from "@/components/PageShell";
 
 export default function JudgeRegister() {
@@ -10,6 +9,7 @@ export default function JudgeRegister() {
   const [fullName, setFullName] = useState("");
   const [company, setCompany] = useState("");
   const [independent, setIndependent] = useState(false);
+  const [accessKey, setAccessKey] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -20,20 +20,25 @@ export default function JudgeRegister() {
       setError("Enter your name, and your company (or mark yourself independent).");
       return;
     }
+    if (!accessKey.trim()) {
+      setError("Enter the judge access key.");
+      return;
+    }
     setLoading(true);
-    const { data, error: err } = await supabase
-      .from("people")
-      .insert({
-        role: "judge",
-        full_name: fullName.trim(),
-        company: independent ? null : company.trim(),
-        is_independent: independent,
-      })
-      .select("id")
-      .single();
+    const res = await fetch("/api/register/judge", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fullName: fullName.trim(),
+        company: company.trim(),
+        isIndependent: independent,
+        accessKey: accessKey.trim(),
+      }),
+    });
+    const data = await res.json();
     setLoading(false);
-    if (err || !data) {
-      setError(err?.message ?? "Something went wrong.");
+    if (!res.ok) {
+      setError(data.error ?? "Something went wrong.");
       return;
     }
     router.push(`/judge/${data.id}`);
@@ -79,6 +84,17 @@ export default function JudgeRegister() {
               />
             </label>
           )}
+
+          <label className="flex flex-col gap-2">
+            <span className="text-sm font-mono text-ink/60">Judge access key</span>
+            <input
+              type="password"
+              className="reg-input"
+              value={accessKey}
+              onChange={(e) => setAccessKey(e.target.value)}
+              placeholder="Given to you by the committee"
+            />
+          </label>
 
           {error && <p className="text-sm text-red-700">{error}</p>}
           <button

@@ -6,6 +6,13 @@ import type { Person } from "@/lib/types";
 
 const STORAGE_KEY = "final_voter_id";
 
+/** Lets a registration flow that already knows the new person's id (e.g. a
+ * freshly-registered judge or committee member) pre-fill the voter identity
+ * cache, so they land on /final/vote already identified. */
+export function rememberVoter(id: string) {
+  sessionStorage.setItem(STORAGE_KEY, id);
+}
+
 /** Remembers the identified voter across page loads (e.g. scanning several
  * top-5 teams' QR codes in a row) so they only have to find their name once. */
 export function useVoterIdentity() {

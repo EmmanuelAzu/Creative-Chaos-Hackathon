@@ -37,8 +37,13 @@ Copy `.env.local.example` to `.env.local` and fill in:
 - `SUPABASE_SERVICE_ROLE_KEY` — from Supabase, server-only.
 - `ADMIN_DASHBOARD_KEY` — any passphrase you choose. This is what unlocks
   `/admin` and every `/api/admin/*` action. Treat it like a password.
+- `JUDGE_ACCESS_KEY`, `COMMITTEE_ACCESS_KEY` — passphrases you choose and
+  hand out to whoever should actually be able to register at
+  `/register/judge` / `/register/committee`. Checked server-side in
+  `/api/register/*` — without the right key the registration is rejected
+  before it ever reaches the database.
 
-Add the same four variables in **Vercel → Project → Settings →
+Add the same six variables in **Vercel → Project → Settings →
 Environment Variables** before deploying.
 
 ## 3. Run locally
@@ -52,7 +57,7 @@ npm run dev
 
 Push this folder to a GitHub repo, then "Import Project" in Vercel and point
 it at the repo. Vercel auto-detects Next.js — no build config needed, as
-long as the four env vars above are set.
+long as the six env vars above are set.
 
 ## 5. Day-of run sheet
 

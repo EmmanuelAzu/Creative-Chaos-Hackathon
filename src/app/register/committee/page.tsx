@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 import { PageShell } from "@/components/PageShell";
+import { rememberVoter } from "@/components/VoterPicker";
 
 export default function CommitteeRegister() {
   const router = useRouter();
   const [fullName, setFullName] = useState("");
   const [portfolio, setPortfolio] = useState("");
+  const [accessKey, setAccessKey] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -19,22 +20,28 @@ export default function CommitteeRegister() {
       setError("Enter your name and your portfolio.");
       return;
     }
-    setLoading(true);
-    const { data, error: err } = await supabase
-      .from("people")
-      .insert({
-        role: "committee",
-        full_name: fullName.trim(),
-        portfolio: portfolio.trim(),
-      })
-      .select("id")
-      .single();
-    setLoading(false);
-    if (err || !data) {
-      setError(err?.message ?? "Something went wrong.");
+    if (!accessKey.trim()) {
+      setError("Enter the committee access key.");
       return;
     }
-    router.push(`/final/vote?voter=${data.id}`);
+    setLoading(true);
+    const res = await fetch("/api/register/committee", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fullName: fullName.trim(),
+        portfolio: portfolio.trim(),
+        accessKey: accessKey.trim(),
+      }),
+    });
+    const data = await res.json();
+    setLoading(false);
+    if (!res.ok) {
+      setError(data.error ?? "Something went wrong.");
+      return;
+    }
+    rememberVoter(data.id);
+    router.push(`/final/vote`);
   }
 
   return (
@@ -62,6 +69,16 @@ export default function CommitteeRegister() {
               value={portfolio}
               onChange={(e) => setPortfolio(e.target.value)}
               placeholder="Logistics & Ops"
+            />
+          </label>
+          <label className="flex flex-col gap-2">
+            <span className="text-sm font-mono text-ink/60">Committee access key</span>
+            <input
+              type="password"
+              className="reg-input"
+              value={accessKey}
+              onChange={(e) => setAccessKey(e.target.value)}
+              placeholder="Given to you by the organizers"
             />
           </label>
           {error && <p className="text-sm text-red-700">{error}</p>}

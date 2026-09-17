@@ -166,8 +166,12 @@ create policy "public read scores" on scores for select using (true);
 create policy "public read final_votes" on final_votes for select using (true);
 create policy "public read settings" on settings for select using (true);
 
--- Public (anon key) can insert their own registration + scores + votes
-create policy "anyone can register" on people for insert with check (true);
+-- Public (anon key) can insert their own registration + scores + votes.
+-- Only participants can self-register directly (anon key, no gate needed).
+-- Judges and committee need an access key, checked server-side in
+-- /api/register/* using the service role key, which bypasses this policy —
+-- so there's deliberately no public insert policy for those two roles.
+create policy "anyone can register as participant" on people for insert with check (role = 'participant');
 create policy "anyone can create a team at registration" on teams for insert with check (true);
 create policy "judges can insert their own scores" on scores for insert with check (true);
 create policy "judges can update their own scores" on scores for update using (true);
