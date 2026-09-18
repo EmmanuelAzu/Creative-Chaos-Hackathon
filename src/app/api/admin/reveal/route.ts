@@ -75,7 +75,7 @@ async function handleRound1(admin: ReturnType<typeof supabaseAdmin>, action: "ne
       .select("team_id, aggregate_score")
       .order("aggregate_score", { ascending: false, nullsFirst: false })
       .limit(10);
-    await admin.from("teams").update({ round1_rank: null }).neq("id", "");
+    await admin.from("teams").update({ round1_rank: null }).not("id", "is", null);
     for (let i = 0; i < (ranked?.length ?? 0); i++) {
       await admin.from("teams").update({ round1_rank: i + 1 }).eq("id", ranked![i].team_id);
     }

@@ -14,10 +14,12 @@ export async function POST(req: NextRequest) {
     .limit(5);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  await admin.from("teams").update({ is_top5: false }).neq("id", "");
+  const { error: clearErr } = await admin.from("teams").update({ is_top5: false }).not("id", "is", null);
+  if (clearErr) return NextResponse.json({ error: clearErr.message }, { status: 500 });
   const ids = (ranked ?? []).map((r) => r.team_id);
   if (ids.length > 0) {
-    await admin.from("teams").update({ is_top5: true }).in("id", ids);
+    const { error: setErr } = await admin.from("teams").update({ is_top5: true }).in("id", ids);
+    if (setErr) return NextResponse.json({ error: setErr.message }, { status: 500 });
   }
   return NextResponse.json({ promoted: ids.length, teamIds: ids });
 }
