@@ -18,6 +18,15 @@ export default function FinalVoteIndex() {
 
   useEffect(() => {
     load();
+    const channel = supabase
+      .channel("final-vote-index")
+      .on("postgres_changes", { event: "*", schema: "public", table: "settings" }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "teams" }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "final_votes" }, load)
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [voter?.id]);
 

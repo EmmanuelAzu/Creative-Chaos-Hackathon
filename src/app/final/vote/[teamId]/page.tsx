@@ -21,10 +21,20 @@ export default function FinalVoteTeam({ params }: { params: { teamId: string } }
 
   useEffect(() => {
     load();
+    const channel = supabase
+      .channel(`final-vote-${params.teamId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "settings" }, syncMeta)
+      .on("postgres_changes", { event: "*", schema: "public", table: "teams" }, syncMeta)
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.teamId, voter?.id]);
 
-  async function load() {
+  // Only re-syncs settings/team-status — never touches `values`, so it can't
+  // stomp on an in-progress slider edit if it fires while someone's voting.
+  async function syncMeta() {
     const { data: settings } = await supabase.from("settings").select("final_stage_open").single();
     setStageOpen(settings?.final_stage_open ?? false);
 
@@ -35,6 +45,10 @@ export default function FinalVoteTeam({ params }: { params: { teamId: string } }
       .maybeSingle();
     setTeamName(team?.name ?? "");
     setIsTop5(team?.is_top5 ?? false);
+  }
+
+  async function load() {
+    await syncMeta();
 
     const { data: crit } = await supabase
       .from("criteria")

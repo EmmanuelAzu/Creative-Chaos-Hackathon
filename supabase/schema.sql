@@ -181,3 +181,16 @@ create policy "voters can change their final vote" on final_votes for update usi
 -- written exclusively via /api/admin/* routes using the SUPABASE_SERVICE_ROLE_KEY,
 -- which bypasses RLS. No public insert/update policies are defined for those on
 -- purpose — do not add "public update settings" etc.
+
+-- ============================================================
+-- REALTIME
+-- Tables aren't broadcast over Supabase Realtime just because RLS lets you
+-- read them — each one needs adding to the `supabase_realtime` publication,
+-- or the app's `.on("postgres_changes", ...)` subscriptions (the leaderboard,
+-- the reveal ceremonies, the final-vote pages) silently never fire and every
+-- page only ever updates on a manual reload.
+-- ============================================================
+alter publication supabase_realtime add table teams;
+alter publication supabase_realtime add table scores;
+alter publication supabase_realtime add table settings;
+alter publication supabase_realtime add table final_votes;

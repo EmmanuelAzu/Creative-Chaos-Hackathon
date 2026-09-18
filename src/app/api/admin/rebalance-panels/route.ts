@@ -25,11 +25,14 @@ export async function POST(req: NextRequest) {
   if (ids.length === 0) return NextResponse.json({ panels: 0, judges: 0 });
 
   const numPanels = Math.max(1, Math.floor(ids.length / PANEL_SIZE));
-  const remainder = ids.length % PANEL_SIZE;
+  // Spread everyone evenly across exactly `numPanels` groups — sizes differ
+  // by at most 1, and every judge lands somewhere (no one left unassigned).
+  const base = Math.floor(ids.length / numPanels);
+  const extra = ids.length % numPanels;
 
   let cursor = 0;
   for (let panel = 1; panel <= numPanels; panel++) {
-    const size = PANEL_SIZE + (panel <= remainder ? 1 : 0);
+    const size = base + (panel <= extra ? 1 : 0);
     const panelIds = ids.slice(cursor, cursor + size);
     cursor += size;
     if (panelIds.length > 0) {
