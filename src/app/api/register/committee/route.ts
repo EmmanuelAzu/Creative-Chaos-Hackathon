@@ -12,6 +12,17 @@ export async function POST(req: NextRequest) {
   }
 
   const admin = supabaseAdmin();
+
+  // Already registered under this exact name? Hand back their existing
+  // identity instead of creating a duplicate committee row.
+  const { data: existing } = await admin
+    .from("people")
+    .select("id")
+    .eq("role", "committee")
+    .ilike("full_name", fullName.trim())
+    .maybeSingle();
+  if (existing) return NextResponse.json(existing);
+
   const { data, error } = await admin
     .from("people")
     .insert({
@@ -22,6 +33,19 @@ export async function POST(req: NextRequest) {
     .select("id")
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    // Race: two near-simultaneous submissions for the same name — the
+    // unique index caught it, so fetch and return the one that won.
+    if (error.code === "23505") {
+      const { data: winner } = await admin
+        .from("people")
+        .select("id")
+        .eq("role", "committee")
+        .ilike("full_name", fullName.trim())
+        .maybeSingle();
+      if (winner) return NextResponse.json(winner);
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
   return NextResponse.json(data);
 }

@@ -39,6 +39,15 @@ create table people (
 create index on people (team_id);
 create index on people (role);
 
+-- Judges and committee only get to the app by self-registering with an
+-- access key, so nothing else stops the same person submitting the form
+-- twice (a double-click, a second device) and ending up as two separate
+-- judges/committee rows. Participants don't need this — they're matched
+-- against an already-imported roster, never freshly inserted, and two
+-- different real participants can legitimately share a name.
+create unique index people_judge_committee_name_unique on people (role, lower(full_name))
+  where role in ('judge', 'committee');
+
 -- ---------- CRITERIA (editable per stage from the admin panel) ----------
 create table criteria (
   id uuid primary key default gen_random_uuid(),

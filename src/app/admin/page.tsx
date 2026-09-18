@@ -122,6 +122,23 @@ export default function AdminDashboard() {
     setMessage("Pushed — every open browser (except top-5 teams) just jumped to that ballot.");
   }
 
+  async function pushEveryoneToPage(path: string) {
+    const channel = supabase.channel("audience-nav");
+    await channel.send({
+      type: "broadcast",
+      event: "goto-page",
+      payload: { path },
+    });
+    supabase.removeChannel(channel);
+  }
+
+  async function callAndPush(path: string, body: any, pagePath: string) {
+    const result = await call(path, body);
+    if (result === null) return; // call() already surfaced the error
+    await pushEveryoneToPage(pagePath);
+    setMessage(`Done — every open browser just jumped to ${pagePath}.`);
+  }
+
   if (!unlocked) {
     return (
       <PageShell eyebrow="ADMIN">
@@ -312,13 +329,14 @@ export default function AdminDashboard() {
             Reveals the top 10 on <code>/leaderboard</code>, one place at a
             time, starting from 10th. Freezes standings on the first click so
             late scores can't reorder mid-ceremony. "Reveal all" skips
-            straight to the full board.
+            straight to the full board. Both buttons also push every open
+            browser in the room straight to <code>/leaderboard</code>.
           </p>
           <div className="flex flex-wrap gap-2">
-            <ActionButton onClick={() => call("/api/admin/reveal", { action: "next", stage: "round1" })}>
+            <ActionButton onClick={() => callAndPush("/api/admin/reveal", { action: "next", stage: "round1" }, "/leaderboard")}>
               Reveal next place
             </ActionButton>
-            <ActionButton onClick={() => call("/api/admin/reveal", { action: "revealAll", stage: "round1" })}>
+            <ActionButton onClick={() => callAndPush("/api/admin/reveal", { action: "revealAll", stage: "round1" }, "/leaderboard")}>
               Reveal all now
             </ActionButton>
             <ActionButton
@@ -374,10 +392,10 @@ export default function AdminDashboard() {
             }))}
           />
           <div className="flex flex-wrap gap-2 mt-3">
-            <ActionButton onClick={() => call("/api/admin/reveal", { action: "next", stage: "final" })}>
+            <ActionButton onClick={() => callAndPush("/api/admin/reveal", { action: "next", stage: "final" }, "/final/reveal")}>
               Reveal next place
             </ActionButton>
-            <ActionButton onClick={() => call("/api/admin/reveal", { action: "revealAll", stage: "final" })}>
+            <ActionButton onClick={() => callAndPush("/api/admin/reveal", { action: "revealAll", stage: "final" }, "/final/reveal")}>
               Reveal all now
             </ActionButton>
             <ActionButton variant="outline" onClick={() => call("/api/admin/reveal", { action: "reset", stage: "final" })}>
@@ -398,7 +416,8 @@ export default function AdminDashboard() {
           </div>
           <p className="font-mono text-xs text-ink/50 mt-2">
             Current step: {settings?.reveal_step ?? 0} / 5 — open{" "}
-            <code>/final/reveal</code> on the big screen.
+            <code>/final/reveal</code> on the big screen. "Reveal next
+            place"/"Reveal all now" also push every open browser there.
           </p>
 
           {finalScores.length > 0 && (
