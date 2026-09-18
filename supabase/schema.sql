@@ -88,7 +88,14 @@ create table settings (
   round1_open boolean not null default true,
   final_stage_open boolean not null default false,
   round1_reveal_step int not null default 0,  -- 0 = blurred/hidden, 1..10 = that many places revealed, from 10th down to 1st
-  reveal_step int not null default 0   -- 0 = nothing revealed, 1..5 = that many ranks revealed, starting from 5th
+  reveal_step int not null default 0,  -- 0 = nothing revealed, 1..5 = that many ranks revealed, starting from 5th
+  -- Set together whenever admin clicks "Push everyone here" for a top-5
+  -- team's ballot: gives every pushed browser a synced 2-minute voting
+  -- window before it auto-returns them to /final/vote to wait for the
+  -- next push. Null final_vote_team_id = no active timed window (e.g. a
+  -- walk-up voter who scanned the table QR on their own gets no timer).
+  final_vote_team_id uuid references teams(id),
+  final_vote_deadline timestamptz
 );
 insert into settings (id) values (true);
 

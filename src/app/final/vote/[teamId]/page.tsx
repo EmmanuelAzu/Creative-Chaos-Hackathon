@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { PageShell } from "@/components/PageShell";
@@ -10,6 +11,7 @@ import type { Criteria } from "@/lib/types";
 const JUDGE_WEIGHT = 1.2;
 
 export default function FinalVoteTeam({ params }: { params: { teamId: string } }) {
+  const router = useRouter();
   const { voter, checked, setVoter } = useVoterIdentity();
   const [teamName, setTeamName] = useState("");
   const [isTop5, setIsTop5] = useState<boolean | null>(null);
@@ -18,6 +20,8 @@ export default function FinalVoteTeam({ params }: { params: { teamId: string } }
   const [values, setValues] = useState<Record<string, number>>({});
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [voteDeadline, setVoteDeadline] = useState<string | null>(null);
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
 
   useEffect(() => {
     load();
@@ -32,11 +36,49 @@ export default function FinalVoteTeam({ params }: { params: { teamId: string } }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.teamId, voter?.id]);
 
+  // Ticks the synced countdown once a second and sends everyone back to
+  // /final/vote to wait for the next push once time's up. Only active
+  // while this specific team is the one admin pushed everyone to — a
+  // walk-up voter who scanned the table QR on their own (no active push)
+  // sees no timer at all.
+  useEffect(() => {
+    if (!voteDeadline) {
+      setSecondsLeft(null);
+      return;
+    }
+    const tick = () => {
+      const remaining = Math.ceil((new Date(voteDeadline).getTime() - Date.now()) / 1000);
+      setSecondsLeft(Math.max(remaining, 0));
+      if (remaining <= 0) router.push("/final/vote");
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [voteDeadline, router]);
+
   // Only re-syncs settings/team-status — never touches `values`, so it can't
   // stomp on an in-progress slider edit if it fires while someone's voting.
   async function syncMeta() {
-    const { data: settings } = await supabase.from("settings").select("final_stage_open").single();
+    const { data: settings } = await supabase
+      .from("settings")
+      .select("final_stage_open, final_vote_team_id, final_vote_deadline")
+      .single();
     setStageOpen(settings?.final_stage_open ?? false);
+
+    // A deadline only counts as an active push if it hasn't already
+    // passed — otherwise it's just left over from whichever team was
+    // pushed last, and everyone should be free to vote at their own pace
+    // (e.g. a walk-up voter scanning the table QR) with no timer at all.
+    const pushActive =
+      !!settings?.final_vote_deadline && new Date(settings.final_vote_deadline).getTime() > Date.now();
+
+    // Admin has already moved on to a different team — follow them there
+    // instead of waiting for this page's own (now stale) timer.
+    if (pushActive && settings!.final_vote_team_id && settings!.final_vote_team_id !== params.teamId) {
+      router.push(`/final/vote/${settings!.final_vote_team_id}`);
+      return;
+    }
+    setVoteDeadline(pushActive && settings?.final_vote_team_id === params.teamId ? settings.final_vote_deadline : null);
 
     const { data: team } = await supabase
       .from("teams")
@@ -128,7 +170,18 @@ export default function FinalVoteTeam({ params }: { params: { teamId: string } }
   return (
     <PageShell eyebrow={`VOTING AS ${voter.full_name.toUpperCase()}`}>
       <div className="max-w-lg">
-        <p className="font-mono text-xs text-teal mb-1">SCORING</p>
+        <div className="flex items-baseline justify-between mb-1">
+          <p className="font-mono text-xs text-teal">SCORING</p>
+          {secondsLeft !== null && (
+            <p
+              className={`font-mono text-xs ${
+                secondsLeft <= 20 ? "text-red-700" : "text-ink/50"
+              }`}
+            >
+              {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, "0")} left
+            </p>
+          )}
+        </div>
         <h1 className="text-3xl tracking-tight mb-8">{teamName || "—"}</h1>
 
         <div className="flex flex-col gap-6">

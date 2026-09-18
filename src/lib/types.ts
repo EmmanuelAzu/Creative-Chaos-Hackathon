@@ -55,6 +55,8 @@ export interface Settings {
   final_stage_open: boolean;
   round1_reveal_step: number;
   reveal_step: number;
+  final_vote_team_id: string | null;
+  final_vote_deadline: string | null;
 }
 
 export interface Round1TeamScore {

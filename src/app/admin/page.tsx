@@ -11,6 +11,8 @@ interface TeamRow {
   name: string;
 }
 
+const VOTE_WINDOW_SECONDS = 120;
+
 export default function AdminDashboard() {
   const [key, setKey] = useState("");
   const [unlocked, setUnlocked] = useState(false);
@@ -103,9 +105,10 @@ export default function AdminDashboard() {
     const data = await res.json();
     if (!res.ok) {
       setMessage(`Error: ${data.error}`);
-      return;
+      return false;
     }
     setSettings(data);
+    return true;
   }
 
   function confirmCall(question: string, path: string, body: any = {}, method = "POST") {
@@ -115,8 +118,15 @@ export default function AdminDashboard() {
 
   async function pushEveryoneToTeam(teamId: string) {
     const excludeTeamIds = finalScores.map((r) => r.team_id);
+    const deadline = new Date(Date.now() + VOTE_WINDOW_SECONDS * 1000).toISOString();
+    const ok = await patchSettings({ final_vote_team_id: teamId, final_vote_deadline: deadline });
+    if (!ok) return; // patchSettings already surfaced the error
     await broadcastGotoVote(teamId, excludeTeamIds);
-    setMessage("Pushed — every open browser (except top-5 teams) just jumped to that ballot.");
+    setMessage(
+      `Pushed — every open browser (except top-5 teams) just jumped to that ballot, with a ${Math.round(
+        VOTE_WINDOW_SECONDS / 60
+      )}-minute timer.`
+    );
   }
 
   async function callAndPush(path: string, body: any, pagePath: string) {
@@ -411,7 +421,10 @@ export default function AdminDashboard() {
             <div className="mt-4 pt-4 border-t border-line">
               <p className="text-sm text-ink/60 mb-2">
                 Push every open browser straight to a team's ballot (skips
-                anyone already identified as a top-5 team member):
+                anyone already identified as a top-5 team member). Starts a
+                synced {Math.round(VOTE_WINDOW_SECONDS / 60)}-minute timer —
+                once it runs out, everyone's sent back to{" "}
+                <code>/final/vote</code> to wait for the next push:
               </p>
               <div className="flex flex-col gap-1">
                 {finalScores.map((r) => (
