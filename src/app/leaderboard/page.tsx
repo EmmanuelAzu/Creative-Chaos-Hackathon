@@ -61,20 +61,16 @@ export default function Leaderboard() {
       .select("id", { count: "exact", head: true });
     setTotalTeams(teamCount ?? 0);
 
-    const { data: scores } = await supabase
+    // Fetched for everyone now, not just admins — it backs both the admin
+    // preview box and the public live-standings board below.
+    const { data: live } = await supabase
       .from("round1_team_scores")
-      .select("team_id, aggregate_score, judges_scored");
-    const judged = (scores ?? []).filter((r) => (r.judges_scored ?? 0) > 0).length;
-    setJudgedTeams(judged);
-
-    if (sessionStorage.getItem("admin_key")) {
-      const { data: live } = await supabase
-        .from("round1_team_scores")
-        .select("*")
-        .order("aggregate_score", { ascending: false, nullsFirst: false })
-        .order("team_name", { ascending: true });
-      setLiveStandings((live as Round1TeamScore[]) ?? []);
-    }
+      .select("*")
+      .order("aggregate_score", { ascending: false, nullsFirst: false })
+      .order("team_name", { ascending: true });
+    const scores = (live as Round1TeamScore[]) ?? [];
+    setLiveStandings(scores);
+    setJudgedTeams(scores.filter((r) => (r.judges_scored ?? 0) > 0).length);
 
     if (step > 0) {
       const { data: teams } = await supabase
@@ -82,7 +78,7 @@ export default function Leaderboard() {
         .select("id, name, round1_rank")
         .not("round1_rank", "is", null)
         .order("round1_rank");
-      const scoreByTeam = new Map((scores as Round1TeamScore[] | null ?? []).map((s) => [s.team_id, s.aggregate_score]));
+      const scoreByTeam = new Map(scores.map((s) => [s.team_id, s.aggregate_score]));
       setRevealed(
         (teams ?? []).map((t) => ({
           id: t.id,
@@ -96,8 +92,13 @@ export default function Leaderboard() {
     }
   }
 
-  const unlockThreshold = Math.ceil(totalTeams / 2);
-  const unlocked = totalTeams > 0 && judgedTeams >= unlockThreshold;
+  // Live scores are public and update in real time while there's still a
+  // deep bench of ungraded teams — once we're down to the last 10 still
+  // needing scores, hide the board again so the live reveal ceremony isn't
+  // spoiled by anyone doing the math themselves in the final stretch.
+  const remaining = totalTeams - judgedTeams;
+  const finalStretch = totalTeams > 0 && remaining <= 10;
+  const topLive = liveStandings.slice(0, 10);
 
   // Ranks revealed so far, going from 10th down to 1st as `revealStep` increases.
   const shownRanks = revealed
@@ -112,7 +113,9 @@ export default function Leaderboard() {
       {isAdmin && (
         <div className="max-w-xl mb-10 border border-teal/40 bg-teal/5 p-5">
           <p className="font-mono text-[10px] tracking-widest text-teal mb-3">
-            ADMIN PREVIEW · LIVE STANDINGS — NOT VISIBLE TO THE PUBLIC
+            {finalStretch
+              ? "ADMIN PREVIEW · LIVE STANDINGS — NOT VISIBLE TO THE PUBLIC"
+              : "ADMIN PREVIEW · ALL TEAMS — PUBLIC BOARD BELOW ALREADY SHOWS THE TOP 10 LIVE"}
           </p>
           <div className="flex flex-col divide-y divide-line text-sm">
             {liveStandings.map((r, i) => (
@@ -131,23 +134,44 @@ export default function Leaderboard() {
             ))}
             {liveStandings.length === 0 && <p className="text-ink/50 py-2">No scores yet.</p>}
           </div>
-          <p className="font-mono text-[10px] text-ink/40 tracking-widest mt-4">
-            BELOW: EXACTLY WHAT THE PUBLIC CURRENTLY SEES ↓
-          </p>
+          {finalStretch && (
+            <p className="font-mono text-[10px] text-ink/40 tracking-widest mt-4">
+              BELOW: EXACTLY WHAT THE PUBLIC CURRENTLY SEES ↓
+            </p>
+          )}
         </div>
       )}
 
-      {!unlocked && revealStep === 0 && (
-        <p className="text-ink/60 font-mono text-sm">
-          Scores are still coming in ({judgedTeams}/{totalTeams || "—"} teams
-          judged so far) — the board unlocks once half the teams are scored.
-        </p>
+      {!finalStretch && revealStep === 0 && (
+        <div className="max-w-xl">
+          <p className="text-ink/60 font-mono text-sm mb-6 flex items-center gap-2">
+            <motion.span
+              animate={{ opacity: [1, 0.3, 1] }}
+              transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+              className="h-1.5 w-1.5 rounded-full bg-teal inline-block"
+            />
+            Live standings — updating as judges finish scoring ({judgedTeams}/
+            {totalTeams || "—"} teams judged so far). Hidden again once we're
+            down to the last 10 still being graded.
+          </p>
+          <div className="flex flex-col divide-y divide-line border-t border-b border-line">
+            <AnimatePresence>
+              {topLive.map((r, i) => (
+                <LiveRow key={r.team_id} rank={i + 1} row={r} />
+              ))}
+            </AnimatePresence>
+            {topLive.length === 0 && (
+              <p className="py-8 text-ink/50 font-mono text-sm">No scores yet.</p>
+            )}
+          </div>
+        </div>
       )}
 
-      {unlocked && revealStep === 0 && (
+      {finalStretch && revealStep === 0 && (
         <div className="max-w-xl">
           <p className="text-ink/60 font-mono text-sm mb-6">
-            Standings are in. Waiting on the room for the top 10 reveal.
+            Down to the last teams — standings are hidden now until the live
+            reveal.
           </p>
           <div className="flex flex-col divide-y divide-line border-t border-b border-line">
             {Array.from({ length: 10 }).map((_, i) => (
@@ -204,6 +228,32 @@ export default function Leaderboard() {
         </div>
       )}
     </PageShell>
+  );
+}
+
+function LiveRow({ rank, row }: { rank: number; row: Round1TeamScore }) {
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0 }}
+      transition={{ layout: { type: "spring", stiffness: 300, damping: 30 }, default: { duration: 0.3 } }}
+      className="flex items-center justify-between gap-3 py-4"
+    >
+      <span className="flex items-center gap-4 min-w-0">
+        <span className="font-mono text-ink/40 w-6 shrink-0">{rank}</span>
+        <span className="text-lg break-words">{row.team_name}</span>
+      </span>
+      <span className="flex items-center gap-3 shrink-0">
+        <span className="text-ink/50 text-xs font-mono">
+          {row.judges_scored} judge{row.judges_scored === 1 ? "" : "s"}
+        </span>
+        <span className="font-mono text-teal text-lg">
+          <CountUpScore value={row.aggregate_score} />
+        </span>
+      </span>
+    </motion.div>
   );
 }
 
