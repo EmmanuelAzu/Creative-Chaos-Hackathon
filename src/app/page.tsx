@@ -21,8 +21,8 @@ const roles = [
   },
   {
     href: "/register/committee",
-    label: "Committee",
-    detail: "Register your name and portfolio.",
+    label: "Committee / Company Rep",
+    detail: "Register your name and portfolio or company.",
     hint: "03",
   },
 ];

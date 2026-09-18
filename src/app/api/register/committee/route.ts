@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid access key" }, { status: 401 });
   }
   if (!fullName?.trim() || !portfolio?.trim()) {
-    return NextResponse.json({ error: "Name and portfolio are required" }, { status: 400 });
+    return NextResponse.json({ error: "Name and portfolio/company are required" }, { status: 400 });
   }
 
   const admin = supabaseAdmin();

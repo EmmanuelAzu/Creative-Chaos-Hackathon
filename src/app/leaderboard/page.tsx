@@ -99,6 +99,11 @@ export default function Leaderboard() {
   const remaining = totalTeams - judgedTeams;
   const finalStretch = totalTeams > 0 && remaining <= 10;
   const topLive = liveStandings.slice(0, 10);
+  // Everyone outside the top 10 — their rank never needs to stay a secret,
+  // so it's shown as soon as we're past the live-updating phase, whether
+  // that's because grading wound down or because the admin jumped straight
+  // to revealing.
+  const restOfTeams = liveStandings.slice(10);
 
   // Ranks revealed so far, going from 10th down to 1st as `revealStep` increases.
   const shownRanks = revealed
@@ -114,7 +119,7 @@ export default function Leaderboard() {
         <div className="max-w-xl mb-10 border border-teal/40 bg-teal/5 p-5">
           <p className="font-mono text-[10px] tracking-widest text-teal mb-3">
             {finalStretch
-              ? "ADMIN PREVIEW · LIVE STANDINGS — NOT VISIBLE TO THE PUBLIC"
+              ? "ADMIN PREVIEW · TOP 10 NOT VISIBLE TO THE PUBLIC YET"
               : "ADMIN PREVIEW · ALL TEAMS — PUBLIC BOARD BELOW ALREADY SHOWS THE TOP 10 LIVE"}
           </p>
           <div className="flex flex-col divide-y divide-line text-sm">
@@ -170,18 +175,15 @@ export default function Leaderboard() {
       {finalStretch && revealStep === 0 && (
         <div className="max-w-xl">
           <p className="text-ink/60 font-mono text-sm mb-6">
-            Down to the last teams — standings are hidden now until the live
-            reveal.
+            Voting's complete — full standings below, except the top 10, which
+            stay hidden until the live reveal.
           </p>
           <div className="flex flex-col divide-y divide-line border-t border-b border-line">
             {Array.from({ length: 10 }).map((_, i) => (
-              <div key={i} className="flex items-center justify-between py-4">
-                <span className="flex items-center gap-4">
-                  <span className="font-mono text-ink/40 w-6">{10 - i}</span>
-                  <span className="h-4 w-40 bg-ink/10 blur-sm rounded" />
-                </span>
-                <span className="h-4 w-12 bg-ink/10 blur-sm rounded" />
-              </div>
+              <BlurRow key={i} rank={10 - i} />
+            ))}
+            {restOfTeams.map((r, i) => (
+              <LiveRow key={r.team_id} rank={11 + i} row={r} />
             ))}
           </div>
         </div>
@@ -216,18 +218,27 @@ export default function Leaderboard() {
               ))}
             </AnimatePresence>
             {placeholderRanks.map((rank) => (
-              <div key={rank} className="flex items-center justify-between py-4">
-                <span className="flex items-center gap-4">
-                  <span className="font-mono text-ink/40 w-6">{rank}</span>
-                  <span className="h-4 w-40 bg-ink/10 blur-sm rounded" />
-                </span>
-                <span className="h-4 w-12 bg-ink/10 blur-sm rounded" />
-              </div>
+              <BlurRow key={rank} rank={rank} />
+            ))}
+            {restOfTeams.map((r, i) => (
+              <LiveRow key={r.team_id} rank={11 + i} row={r} />
             ))}
           </div>
         </div>
       )}
     </PageShell>
+  );
+}
+
+function BlurRow({ rank }: { rank: number }) {
+  return (
+    <div className="flex items-center justify-between py-4">
+      <span className="flex items-center gap-4">
+        <span className="font-mono text-ink/40 w-6">{rank}</span>
+        <span className="h-4 w-40 bg-ink/10 blur-sm rounded" />
+      </span>
+      <span className="h-4 w-12 bg-ink/10 blur-sm rounded" />
+    </div>
   );
 }
 

@@ -17,7 +17,7 @@ export default function CommitteeRegister() {
     e.preventDefault();
     setError(null);
     if (!fullName.trim() || !portfolio.trim()) {
-      setError("Enter your name and your portfolio.");
+      setError("Enter your name and your portfolio/company.");
       return;
     }
     if (!accessKey.trim()) {
@@ -47,8 +47,9 @@ export default function CommitteeRegister() {
   return (
     <PageShell eyebrow="COMMITTEE">
       <div className="max-w-md">
-        <h1 className="text-3xl tracking-tight mb-2">Committee registration</h1>
+        <h1 className="text-3xl tracking-tight mb-2">Committee &amp; company rep registration</h1>
         <p className="text-ink/60 mb-8">
+          For organizing committee members and sponsor/company representatives.
           You'll be able to vote once the final stage opens.
         </p>
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
@@ -63,12 +64,12 @@ export default function CommitteeRegister() {
             />
           </label>
           <label className="flex flex-col gap-2">
-            <span className="text-sm font-mono text-ink/60">Portfolio</span>
+            <span className="text-sm font-mono text-ink/60">Portfolio/Company</span>
             <input
               className="reg-input"
               value={portfolio}
               onChange={(e) => setPortfolio(e.target.value)}
-              placeholder="Logistics & Ops"
+              placeholder="Logistics & Ops, or your company name"
             />
           </label>
           <label className="flex flex-col gap-2">
