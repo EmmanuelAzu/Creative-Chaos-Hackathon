@@ -116,6 +116,22 @@ export default function AdminDashboard() {
     call(path, body, method);
   }
 
+  async function downloadRoster() {
+    setMessage("");
+    const res = await fetch("/api/admin/roster", { headers: { "x-admin-key": key } });
+    if (!res.ok) {
+      setMessage("Error: couldn't generate the roster PDF.");
+      return;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "participant-roster.pdf";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function pushEveryoneToTeam(teamId: string) {
     const excludeTeamIds = finalScores.map((r) => r.team_id);
     const deadline = new Date(Date.now() + VOTE_WINDOW_SECONDS * 1000).toISOString();
@@ -448,6 +464,11 @@ export default function AdminDashboard() {
             {participants.length} participants · {judges.length} judges ·{" "}
             {committee.length} committee.
           </p>
+          <div className="mb-4">
+            <ActionButton onClick={downloadRoster} variant="outline">
+              Download roster PDF
+            </ActionButton>
+          </div>
           <div className="flex flex-col gap-4 max-h-96 overflow-y-auto text-sm">
             <PeopleGroup
               label="PARTICIPANTS"
