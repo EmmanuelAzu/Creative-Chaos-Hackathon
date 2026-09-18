@@ -225,29 +225,29 @@ function RevealRow({ team }: { team: RevealTeam }) {
         backgroundColor: { duration: 1.1, ease: "easeOut" },
       }}
       style={{ transformPerspective: 600 }}
-      className={`flex items-center justify-between py-4 ${advancing ? "px-2 -mx-2" : ""}`}
+      className={`flex items-center justify-between gap-3 py-4 ${advancing ? "px-2 -mx-2" : ""}`}
     >
-      <span className="flex items-center gap-4">
+      <span className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0 flex-1">
         <motion.span
           initial={{ scale: 1.6 }}
           animate={{ scale: 1 }}
           transition={{ type: "spring", stiffness: 200, damping: 12, delay: 0.1 }}
-          className="font-mono text-ink/40 w-6"
+          className="font-mono text-ink/40 w-6 shrink-0"
         >
           {team.round1_rank}
         </motion.span>
-        <span className="text-lg">{team.name}</span>
+        <span className="text-lg break-words">{team.name}</span>
         {advancing && (
           <motion.span
             animate={{ opacity: [0.5, 1, 0.5] }}
             transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-            className="font-mono text-[10px] tracking-widest text-teal border border-teal px-1.5 py-0.5"
+            className="font-mono text-[10px] tracking-widest text-teal border border-teal px-1.5 py-0.5 shrink-0"
           >
             ADVANCING
           </motion.span>
         )}
       </span>
-      <span className="font-mono text-teal text-lg">
+      <span className="font-mono text-teal text-lg shrink-0">
         <CountUpScore value={team.aggregate_score} />
       </span>
     </motion.div>

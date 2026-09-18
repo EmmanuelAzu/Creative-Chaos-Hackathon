@@ -192,9 +192,9 @@ export default function AdminDashboard() {
 
         <Section title="Judging criteria">
           <div className="flex flex-col gap-2 mb-3">
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <select
-                className="border border-line bg-white px-2 py-2 text-sm"
+                className="border border-line bg-white px-2 py-2 text-sm min-w-0"
                 value={criteriaStage}
                 onChange={(e) => setCriteriaStage(e.target.value as any)}
               >
@@ -202,14 +202,14 @@ export default function AdminDashboard() {
                 <option value="final">Final</option>
               </select>
               <input
-                className="border border-line bg-white px-2 py-2 text-sm flex-1"
+                className="border border-line bg-white px-2 py-2 text-sm flex-1 min-w-0"
                 placeholder="Criterion name"
                 value={criteriaName}
                 onChange={(e) => setCriteriaName(e.target.value)}
               />
               <input
                 type="number"
-                className="border border-line bg-white px-2 py-2 text-sm w-20"
+                className="border border-line bg-white px-2 py-2 text-sm w-full sm:w-20 min-w-0"
                 value={criteriaMax}
                 onChange={(e) => setCriteriaMax(Number(e.target.value))}
               />
