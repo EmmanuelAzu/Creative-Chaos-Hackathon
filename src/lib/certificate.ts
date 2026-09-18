@@ -7,9 +7,12 @@ import { supabaseAdmin } from "./supabase";
 
 export interface Tier {
   title: string; // e.g. "1st Place" — used for the certificate's admin-facing label
-  subtitle: string; // e.g. "1ST PLACE" — the short line under "CERTIFICATE" on the PDF
+  subtitle: string; // e.g. "OF APPRECIATION" — the short line under "CERTIFICATE" on the PDF
   accentHex: string;
   resultLine: string; // clause describing the achievement, appended to the body sentence
+  // Set (1-10) only for a team that placed in the top 10 — switches the PDF
+  // to the ranked template and fills in its "Final Rank: Nth Place" line.
+  rank?: number;
 }
 
 const HEX = {
@@ -21,6 +24,7 @@ const HEX = {
   orange: "#F2A93C",
   white: "#F2F5F4",
   muted: "#B7BDC6",
+  rankLabel: "#FFC000", // matches the ranked template's own baked-in "Final Rank:" label color
 };
 
 const PLACE_WORDS = ["", "1ST", "2ND", "3RD", "4TH", "5TH", "6TH", "7TH", "8TH", "9TH", "10TH"];
@@ -60,9 +64,10 @@ export async function resolveTier(person: Person): Promise<Tier> {
       const accent = rank === 1 ? HEX.gold : rank === 2 ? HEX.silver : rank === 3 ? HEX.bronze : HEX.volt;
       return {
         title: `${PLACE_WORDS_TITLE[rank]} Place`,
-        subtitle: `${PLACE_WORDS[rank]} PLACE`,
+        subtitle: "OF PARTICIPATION",
         accentHex: accent,
         resultLine: `and placed ${PLACE_WORDS[rank].toLowerCase()} in the final round`,
+        rank,
       };
     }
 
@@ -77,9 +82,10 @@ export async function resolveTier(person: Person): Promise<Tier> {
     if (position >= 6 && position <= 10) {
       return {
         title: `${PLACE_WORDS_TITLE[position]} Place`,
-        subtitle: `${PLACE_WORDS[position]} PLACE`,
+        subtitle: "OF PARTICIPATION",
         accentHex: HEX.volt,
         resultLine: `and placed ${PLACE_WORDS[position].toLowerCase()} in round one, finishing in the top 10`,
+        rank: position,
       };
     }
   }
@@ -118,14 +124,25 @@ const NAME_BASELINE_Y = 668;
 const TEAM_ERASE = { x0: 650, y0: 745, x1: 1370, y1: 797 };
 const TEAM_CENTER_X = 1010;
 const TEAM_BASELINE_Y = 790;
+// The ranked template's "team name" placeholder sits ~34px higher than the
+// base template's (its layout was compressed to fit the "Final Rank" line
+// in below) — reusing TEAM_ERASE here would leave the top of its real
+// placeholder text un-erased, showing through behind the redrawn line.
+const TEAM_ERASE_RANKED = { x0: 650, y0: 705, x1: 1370, y1: 775 };
+const TEAM_BASELINE_Y_RANKED = 756;
 // The template's baked-in "OF PARTICIPATION" subtitle, under the static
-// "CERTIFICATE" heading — replaced with the tier's own subtitle (e.g. "6TH
-// PLACE", "OF APPRECIATION") so the result/placement actually shows up on
-// the PDF instead of every certificate reading "OF PARTICIPATION".
+// "CERTIFICATE" heading — replaced with the tier's own subtitle (e.g.
+// "OF APPRECIATION") so it actually shows up on the PDF instead of every
+// certificate reading "OF PARTICIPATION". Not used for the ranked template
+// (below) — that one already reads "OF PARTICIPATION" correctly as-is.
 const SUBTITLE_ERASE = { x0: 620, y0: 265, x1: 1380, y1: 355 };
 const SUBTITLE_CENTER_X = 1010;
 const SUBTITLE_BASELINE_Y = 348;
-// Sampled from the template's background right around all three placeholders.
+// The ranked template's baked-in "Final Rank: X" placeholder line.
+const FINAL_RANK_ERASE = { x0: 650, y0: 985, x1: 1400, y1: 1038 };
+const FINAL_RANK_CENTER_X = 1025;
+const FINAL_RANK_BASELINE_Y = 1030;
+// Sampled from the template's background right around all the placeholders.
 const ERASE_FILL = rgb(0 / 255, 5 / 255, 11 / 255);
 
 export async function renderCertificatePdf(
@@ -137,7 +154,7 @@ export async function renderCertificatePdf(
   doc.registerFontkit(fontkit);
   const page = doc.addPage([PAGE_W, PAGE_H]);
 
-  const bg = await doc.embedPng(readPublic("certificate-bg.png"));
+  const bg = await doc.embedPng(readPublic(tier.rank ? "certificate-bg-ranked.png" : "certificate-bg.png"));
   page.drawImage(bg, { x: 0, y: 0, width: PAGE_W, height: PAGE_H });
 
   const chakraBold = await doc.embedFont(readPublic("fonts", "ChakraPetch-Bold.ttf"), { subset: true });
@@ -147,11 +164,28 @@ export async function renderCertificatePdf(
   const cyan = hexToRgb(HEX.cyan);
   const accent = hexToRgb(tier.accentHex);
 
-  // ---------- subtitle (result/placement) ----------
-  eraseImgRect(page, SUBTITLE_ERASE);
-  const subtitlePt = pt(SUBTITLE_CENTER_X, SUBTITLE_BASELINE_Y);
-  const subtitleMaxWidthPt = (SUBTITLE_ERASE.x1 - SUBTITLE_ERASE.x0) * SCALE * 0.94;
-  drawFitCentered(page, tier.subtitle, subtitlePt.x, subtitlePt.y, 25, chakraBold, accent, subtitleMaxWidthPt);
+  if (tier.rank) {
+    // ---------- final rank ----------
+    eraseImgRect(page, FINAL_RANK_ERASE);
+    const rankPt = pt(FINAL_RANK_CENTER_X, FINAL_RANK_BASELINE_Y);
+    const rankMaxWidthPt = (FINAL_RANK_ERASE.x1 - FINAL_RANK_ERASE.x0) * SCALE * 0.94;
+    drawFitCentered(
+      page,
+      `Final Rank: ${PLACE_WORDS_TITLE[tier.rank]} Place`,
+      rankPt.x,
+      rankPt.y,
+      22,
+      chakraBold,
+      hexToRgb(HEX.rankLabel),
+      rankMaxWidthPt
+    );
+  } else {
+    // ---------- subtitle (result/placement) ----------
+    eraseImgRect(page, SUBTITLE_ERASE);
+    const subtitlePt = pt(SUBTITLE_CENTER_X, SUBTITLE_BASELINE_Y);
+    const subtitleMaxWidthPt = (SUBTITLE_ERASE.x1 - SUBTITLE_ERASE.x0) * SCALE * 0.94;
+    drawFitCentered(page, tier.subtitle, subtitlePt.x, subtitlePt.y, 25, chakraBold, accent, subtitleMaxWidthPt);
+  }
 
   // ---------- name ----------
   eraseImgRect(page, NAME_ERASE);
@@ -160,10 +194,12 @@ export async function renderCertificatePdf(
   drawFitCentered(page, person.full_name.toUpperCase(), namePt.x, namePt.y, 31.5, chakraBold, accent, nameMaxWidthPt);
 
   // ---------- team ----------
-  eraseImgRect(page, TEAM_ERASE);
+  const teamErase = tier.rank ? TEAM_ERASE_RANKED : TEAM_ERASE;
+  const teamBaselineY = tier.rank ? TEAM_BASELINE_Y_RANKED : TEAM_BASELINE_Y;
+  eraseImgRect(page, teamErase);
   if (team) {
-    const teamPt = pt(TEAM_CENTER_X, TEAM_BASELINE_Y);
-    const teamMaxWidthPt = (TEAM_ERASE.x1 - TEAM_ERASE.x0) * SCALE * 0.94;
+    const teamPt = pt(TEAM_CENTER_X, teamBaselineY);
+    const teamMaxWidthPt = (teamErase.x1 - teamErase.x0) * SCALE * 0.94;
     drawFitCentered(page, `Of team “${team.name}”`, teamPt.x, teamPt.y, 14.5, rajSemi, cyan, teamMaxWidthPt);
   }
 
