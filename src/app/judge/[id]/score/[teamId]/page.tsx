@@ -155,7 +155,7 @@ export default function ScoreTeam({
                         type="range"
                         min={0}
                         max={c.max_score}
-                        step={1}
+                        step={2}
                         value={values[c.id] ?? 0}
                         onChange={(e) =>
                           setValues((v) => ({ ...v, [c.id]: Number(e.target.value) }))
