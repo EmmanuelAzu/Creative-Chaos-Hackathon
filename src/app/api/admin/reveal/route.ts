@@ -37,7 +37,11 @@ async function handleFinal(admin: ReturnType<typeof supabaseAdmin>, action: "nex
     const { data: ranked } = await admin
       .from("final_team_scores")
       .select("team_id, weighted_score")
-      .order("weighted_score", { ascending: false, nullsFirst: false });
+      // Score first, alphabetical always breaks ties — matches every live
+      // view, so the frozen order can't quietly disagree with what was
+      // already shown before the reveal.
+      .order("weighted_score", { ascending: false, nullsFirst: false })
+      .order("team_name", { ascending: true });
     for (let i = 0; i < (ranked?.length ?? 0); i++) {
       await admin.from("teams").update({ final_rank: i + 1 }).eq("id", ranked![i].team_id);
     }
@@ -73,7 +77,11 @@ async function handleRound1(admin: ReturnType<typeof supabaseAdmin>, action: "ne
     const { data: ranked } = await admin
       .from("round1_team_scores")
       .select("team_id, aggregate_score")
+      // Score first, alphabetical always breaks ties — matches every live
+      // view, so the frozen order can't quietly disagree with what was
+      // already shown before the reveal.
       .order("aggregate_score", { ascending: false, nullsFirst: false })
+      .order("team_name", { ascending: true })
       .limit(10);
     await admin.from("teams").update({ round1_rank: null }).not("id", "is", null);
     for (let i = 0; i < (ranked?.length ?? 0); i++) {

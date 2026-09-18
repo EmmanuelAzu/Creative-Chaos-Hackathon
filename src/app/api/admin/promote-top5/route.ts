@@ -10,7 +10,12 @@ export async function POST(req: NextRequest) {
   const { data: ranked, error } = await admin
     .from("round1_team_scores")
     .select("team_id, aggregate_score")
+    // Score first, alphabetical always breaks ties — otherwise Postgres's
+    // order for equal (or all-null, e.g. right after a reset) scores is
+    // undefined, so it can silently disagree with what every live view
+    // already shows.
     .order("aggregate_score", { ascending: false, nullsFirst: false })
+    .order("team_name", { ascending: true })
     .limit(5);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
