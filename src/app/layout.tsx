@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, IBM_Plex_Mono } from "next/font/google";
+import { AudienceNavListener } from "@/components/AudienceNavListener";
 import "./globals.css";
 
 const spaceGrotesk = Space_Grotesk({
@@ -27,6 +28,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${spaceGrotesk.variable} ${plexMono.variable}`}>
       <body className="bg-paper font-sans min-h-screen antialiased">
+        <AudienceNavListener />
         {children}
       </body>
     </html>

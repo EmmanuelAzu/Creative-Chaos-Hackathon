@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 import { PageShell } from "@/components/PageShell";
+import { rememberMyTeam } from "@/lib/myTeam";
 
 export default function ParticipantRegister() {
   const router = useRouter();
   const [fullName, setFullName] = useState("");
   const [teamName, setTeamName] = useState("");
+  const [accessKey, setAccessKey] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -19,59 +20,37 @@ export default function ParticipantRegister() {
       setError("Enter your name and your team name.");
       return;
     }
+    if (!accessKey.trim()) {
+      setError("Enter the participant access key.");
+      return;
+    }
     setLoading(true);
-
-    // Find the team (imported from your CSV) or create it if it doesn't exist yet.
-    let teamId: string;
-    const { data: existing, error: findErr } = await supabase
-      .from("teams")
-      .select("id")
-      .ilike("name", teamName.trim())
-      .maybeSingle();
-
-    if (findErr) {
-      setError(findErr.message);
-      setLoading(false);
-      return;
-    }
-
-    if (existing) {
-      teamId = existing.id;
-    } else {
-      const { data: created, error: createErr } = await supabase
-        .from("teams")
-        .insert({ name: teamName.trim() })
-        .select("id")
-        .single();
-      if (createErr || !created) {
-        setError(createErr?.message ?? "Couldn't create the team.");
-        setLoading(false);
-        return;
-      }
-      teamId = created.id;
-    }
-
-    const { error: personErr } = await supabase.from("people").insert({
-      role: "participant",
-      full_name: fullName.trim(),
-      team_id: teamId,
+    const res = await fetch("/api/register/participant", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fullName: fullName.trim(),
+        teamName: teamName.trim(),
+        accessKey: accessKey.trim(),
+      }),
     });
-
+    const data = await res.json();
     setLoading(false);
-    if (personErr) {
-      setError(personErr.message);
+    if (!res.ok) {
+      setError(data.error ?? "Something went wrong.");
       return;
     }
-
-    router.push(`/team/${teamId}`);
+    rememberMyTeam(data.teamId);
+    router.push(`/team/${data.teamId}`);
   }
 
   return (
     <PageShell eyebrow="PARTICIPANT">
       <div className="max-w-md">
-        <h1 className="text-3xl tracking-tight mb-2">Register your team</h1>
+        <h1 className="text-3xl tracking-tight mb-2">Check in</h1>
         <p className="text-ink/60 mb-8">
-          Same team name as your teammates — you'll all land on the same QR code.
+          Enter your name exactly as your team submitted it, and your team
+          name — we'll match you against the confirmed roster.
         </p>
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <Field label="Your full name">
@@ -91,13 +70,22 @@ export default function ParticipantRegister() {
               placeholder="The Night Owls"
             />
           </Field>
+          <Field label="Access key">
+            <input
+              type="password"
+              className="reg-input"
+              value={accessKey}
+              onChange={(e) => setAccessKey(e.target.value)}
+              placeholder="Given to you by the organizers"
+            />
+          </Field>
           {error && <p className="text-sm text-red-700">{error}</p>}
           <button
             type="submit"
             disabled={loading}
             className="mt-2 bg-ink text-paper py-3 font-medium hover:bg-teal-deep transition-colors disabled:opacity-50 focus-ring"
           >
-            {loading ? "Registering…" : "Register"}
+            {loading ? "Checking in…" : "Check in"}
           </button>
         </form>
       </div>

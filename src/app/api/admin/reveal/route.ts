@@ -9,14 +9,14 @@ export async function POST(req: NextRequest) {
   const {
     action,
     stage = "final",
-  }: { action: "next" | "reset"; stage?: "round1" | "final" } = await req.json();
+  }: { action: "next" | "reset" | "revealAll"; stage?: "round1" | "final" } = await req.json();
   const admin = supabaseAdmin();
 
   if (stage === "round1") return handleRound1(admin, action);
   return handleFinal(admin, action);
 }
 
-async function handleFinal(admin: ReturnType<typeof supabaseAdmin>, action: "next" | "reset") {
+async function handleFinal(admin: ReturnType<typeof supabaseAdmin>, action: "next" | "reset" | "revealAll") {
   if (action === "reset") {
     const { data } = await admin
       .from("settings")
@@ -27,8 +27,9 @@ async function handleFinal(admin: ReturnType<typeof supabaseAdmin>, action: "nex
     return NextResponse.json(data);
   }
 
-  // On the very first "next", freeze final_rank for all top-5 teams based on
-  // the current weighted scores, so the reveal order can't shift mid-ceremony.
+  // On the very first "next"/"revealAll", freeze final_rank for all top-5
+  // teams based on the current weighted scores, so the reveal order can't
+  // shift mid-ceremony.
   const { data: settings } = await admin.from("settings").select("reveal_step").single();
   const step = settings?.reveal_step ?? 0;
 
@@ -42,7 +43,7 @@ async function handleFinal(admin: ReturnType<typeof supabaseAdmin>, action: "nex
     }
   }
 
-  const next = Math.min(step + 1, 5);
+  const next = action === "revealAll" ? 5 : Math.min(step + 1, 5);
   const { data } = await admin
     .from("settings")
     .update({ reveal_step: next })
@@ -52,7 +53,7 @@ async function handleFinal(admin: ReturnType<typeof supabaseAdmin>, action: "nex
   return NextResponse.json(data);
 }
 
-async function handleRound1(admin: ReturnType<typeof supabaseAdmin>, action: "next" | "reset") {
+async function handleRound1(admin: ReturnType<typeof supabaseAdmin>, action: "next" | "reset" | "revealAll") {
   if (action === "reset") {
     const { data } = await admin
       .from("settings")
@@ -63,8 +64,8 @@ async function handleRound1(admin: ReturnType<typeof supabaseAdmin>, action: "ne
     return NextResponse.json(data);
   }
 
-  // On the very first "next", freeze round1_rank (top 10) from the current
-  // aggregate scores, so late scores can't shift places mid-ceremony.
+  // On the very first "next"/"revealAll", freeze round1_rank (top 10) from
+  // the current aggregate scores, so late scores can't shift places mid-ceremony.
   const { data: settings } = await admin.from("settings").select("round1_reveal_step").single();
   const step = settings?.round1_reveal_step ?? 0;
 
@@ -80,7 +81,7 @@ async function handleRound1(admin: ReturnType<typeof supabaseAdmin>, action: "ne
     }
   }
 
-  const next = Math.min(step + 1, 10);
+  const next = action === "revealAll" ? 10 : Math.min(step + 1, 10);
   const { data } = await admin
     .from("settings")
     .update({ round1_reveal_step: next })

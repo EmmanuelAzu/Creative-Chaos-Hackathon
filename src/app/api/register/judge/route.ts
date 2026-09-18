@@ -1,6 +1,36 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 
+const PANEL_SIZE = 3;
+
+/** Fills existing under-sized panels first, only starting a new one once every
+ * panel has at least PANEL_SIZE judges — so at most one panel is ever short. */
+async function assignPanel(admin: ReturnType<typeof supabaseAdmin>): Promise<number> {
+  const { data: judges } = await admin
+    .from("people")
+    .select("panel_number")
+    .eq("role", "judge")
+    .not("panel_number", "is", null);
+
+  const counts = new Map<number, number>();
+  for (const j of judges ?? []) {
+    const panel = j.panel_number as number;
+    counts.set(panel, (counts.get(panel) ?? 0) + 1);
+  }
+  if (counts.size === 0) return 1;
+
+  let smallestPanel = 1;
+  let smallestCount = Infinity;
+  for (const [panel, count] of counts) {
+    if (count < smallestCount) {
+      smallestCount = count;
+      smallestPanel = panel;
+    }
+  }
+  if (smallestCount < PANEL_SIZE) return smallestPanel;
+  return Math.max(...counts.keys()) + 1;
+}
+
 export async function POST(req: NextRequest) {
   const { fullName, company, isIndependent, accessKey } = await req.json();
 
@@ -12,6 +42,7 @@ export async function POST(req: NextRequest) {
   }
 
   const admin = supabaseAdmin();
+  const panelNumber = await assignPanel(admin);
   const { data, error } = await admin
     .from("people")
     .insert({
@@ -19,8 +50,9 @@ export async function POST(req: NextRequest) {
       full_name: fullName.trim(),
       company: isIndependent ? null : company.trim(),
       is_independent: !!isIndependent,
+      panel_number: panelNumber,
     })
-    .select("id")
+    .select("id, panel_number")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

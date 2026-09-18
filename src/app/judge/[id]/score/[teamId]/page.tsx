@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { PageShell } from "@/components/PageShell";
 import { ScanTeamButton } from "@/components/ScanTeamButton";
+import { usePanelSync } from "@/lib/panelSync";
 import type { Criteria } from "@/lib/types";
 
 interface TeamOption {
@@ -20,10 +21,15 @@ export default function ScoreTeam({
   const router = useRouter();
   const [teams, setTeams] = useState<TeamOption[]>([]);
   const [teamName, setTeamName] = useState("");
+  const [panelNumber, setPanelNumber] = useState<number | null>(null);
   const [criteria, setCriteria] = useState<Criteria[]>([]);
   const [values, setValues] = useState<Record<string, number>>({});
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const { broadcastGoto } = usePanelSync(panelNumber, params.id, (teamId) => {
+    router.push(`/judge/${params.id}/score/${teamId}`);
+  });
 
   useEffect(() => {
     load();
@@ -33,6 +39,13 @@ export default function ScoreTeam({
   async function load() {
     setSaved(false);
     setError(null);
+
+    const { data: judge } = await supabase
+      .from("people")
+      .select("panel_number")
+      .eq("id", params.id)
+      .maybeSingle();
+    setPanelNumber(judge?.panel_number ?? null);
 
     const { data: allTeams } = await supabase.from("teams").select("id, name").order("name");
     setTeams((allTeams as TeamOption[]) ?? []);
@@ -62,6 +75,7 @@ export default function ScoreTeam({
   }
 
   function switchTeam(teamId: string) {
+    broadcastGoto(teamId);
     router.push(`/judge/${params.id}/score/${teamId}`);
   }
 

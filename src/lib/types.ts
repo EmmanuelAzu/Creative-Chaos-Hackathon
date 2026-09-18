@@ -18,6 +18,7 @@ export interface Person {
   team_id: string | null;
   company: string | null;
   is_independent: boolean | null;
+  panel_number: number | null;
   portfolio: string | null;
   created_at: string;
 }

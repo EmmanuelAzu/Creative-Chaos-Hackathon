@@ -3,7 +3,12 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { PageShell } from "@/components/PageShell";
-import type { Round1TeamScore, FinalTeamScore, Settings, Criteria } from "@/lib/types";
+import type { Round1TeamScore, FinalTeamScore, Settings, Criteria, Person } from "@/lib/types";
+
+interface TeamRow {
+  id: string;
+  name: string;
+}
 
 export default function AdminDashboard() {
   const [key, setKey] = useState("");
@@ -12,6 +17,8 @@ export default function AdminDashboard() {
   const [round1, setRound1] = useState<Round1TeamScore[]>([]);
   const [finalScores, setFinalScores] = useState<FinalTeamScore[]>([]);
   const [criteria, setCriteria] = useState<Criteria[]>([]);
+  const [people, setPeople] = useState<Person[]>([]);
+  const [teams, setTeams] = useState<TeamRow[]>([]);
   const [csvText, setCsvText] = useState("");
   const [criteriaName, setCriteriaName] = useState("");
   const [criteriaCategory, setCriteriaCategory] = useState("");
@@ -51,6 +58,14 @@ export default function AdminDashboard() {
       .order("stage")
       .order("sort_order");
     setCriteria((crit as Criteria[]) ?? []);
+    const { data: ppl } = await supabase
+      .from("people")
+      .select("*")
+      .order("role")
+      .order("full_name");
+    setPeople((ppl as Person[]) ?? []);
+    const { data: tms } = await supabase.from("teams").select("id, name").order("name");
+    setTeams((tms as TeamRow[]) ?? []);
   }
 
   function unlock() {
@@ -90,6 +105,23 @@ export default function AdminDashboard() {
     setSettings(data);
   }
 
+  function confirmCall(question: string, path: string, body: any = {}, method = "POST") {
+    if (!window.confirm(question)) return;
+    call(path, body, method);
+  }
+
+  async function pushEveryoneToTeam(teamId: string) {
+    const excludeTeamIds = finalScores.map((r) => r.team_id);
+    const channel = supabase.channel("audience-nav");
+    await channel.send({
+      type: "broadcast",
+      event: "goto-vote",
+      payload: { teamId, excludeTeamIds },
+    });
+    supabase.removeChannel(channel);
+    setMessage("Pushed — every open browser (except top-5 teams) just jumped to that ballot.");
+  }
+
   if (!unlocked) {
     return (
       <PageShell eyebrow="ADMIN">
@@ -122,6 +154,16 @@ export default function AdminDashboard() {
   const round1Criteria = criteria.filter((c) => c.stage === "round1");
   const finalCriteria = criteria.filter((c) => c.stage === "final");
   const round1Total = round1Criteria.reduce((s, c) => s + c.max_score, 0);
+
+  const teamNameById = new Map(teams.map((t) => [t.id, t.name]));
+  const judges = people.filter((p) => p.role === "judge");
+  const committee = people.filter((p) => p.role === "committee");
+  const participants = people.filter((p) => p.role === "participant");
+  const panels = new Map<number, Person[]>();
+  for (const j of judges) {
+    const panel = j.panel_number ?? 0;
+    panels.set(panel, [...(panels.get(panel) ?? []), j]);
+  }
 
   return (
     <PageShell eyebrow="ADMIN">
@@ -224,6 +266,29 @@ export default function AdminDashboard() {
           </div>
         </Section>
 
+        <Section title="Judge panels">
+          <p className="text-sm text-ink/60 mb-3">
+            Judges are auto-grouped into panels of at least 3 as they
+            register — when one scans a team's QR, the whole panel jumps
+            there together. Rebalance once everyone's checked in to smooth
+            out any leftover short panel.
+          </p>
+          <ActionButton onClick={() => call("/api/admin/rebalance-panels")}>Rebalance panels</ActionButton>
+          <div className="mt-4 flex flex-col gap-2 text-sm max-h-48 overflow-y-auto">
+            {Array.from(panels.entries())
+              .sort((a, b) => a[0] - b[0])
+              .map(([panel, members]) => (
+                <div key={panel} className="flex items-start gap-2">
+                  <span className="font-mono text-xs text-teal shrink-0">
+                    {panel === 0 ? "UNASSIGNED" : `PANEL ${panel}`}
+                  </span>
+                  <span className="text-ink/70">{members.map((m) => m.full_name).join(", ")}</span>
+                </div>
+              ))}
+            {judges.length === 0 && <p className="text-ink/50">No judges registered yet.</p>}
+          </div>
+        </Section>
+
         <Section title="Round 1 leaderboard">
           <p className="text-sm text-ink/60 mb-3">
             {judgedTeams}/{totalTeams || "—"} teams judged — the public board
@@ -231,10 +296,14 @@ export default function AdminDashboard() {
           </p>
           <ScoreTable
             rows={round1.map((r) => ({
+              id: r.team_id,
               name: r.team_name,
               score: r.aggregate_score,
               detail: `${r.judges_scored} judge${r.judges_scored === 1 ? "" : "s"} scored`,
             }))}
+            onDelete={(id, name) =>
+              confirmCall(`Delete team "${name}" and its whole roster? This can't be undone.`, "/api/admin/teams", { id }, "DELETE")
+            }
           />
         </Section>
 
@@ -242,17 +311,33 @@ export default function AdminDashboard() {
           <p className="text-sm text-ink/60 mb-3">
             Reveals the top 10 on <code>/leaderboard</code>, one place at a
             time, starting from 10th. Freezes standings on the first click so
-            late scores can't reorder mid-ceremony.
+            late scores can't reorder mid-ceremony. "Reveal all" skips
+            straight to the full board.
           </p>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <ActionButton onClick={() => call("/api/admin/reveal", { action: "next", stage: "round1" })}>
               Reveal next place
+            </ActionButton>
+            <ActionButton onClick={() => call("/api/admin/reveal", { action: "revealAll", stage: "round1" })}>
+              Reveal all now
             </ActionButton>
             <ActionButton
               variant="outline"
               onClick={() => call("/api/admin/reveal", { action: "reset", stage: "round1" })}
             >
               Reset reveal
+            </ActionButton>
+            <ActionButton
+              variant="outline"
+              onClick={() =>
+                confirmCall(
+                  "Wipe every Round 1 score and rank? This can't be undone.",
+                  "/api/admin/reset-scores",
+                  { stage: "round1" }
+                )
+              }
+            >
+              Reset scores
             </ActionButton>
           </div>
           <p className="font-mono text-xs text-ink/50 mt-2">
@@ -282,26 +367,135 @@ export default function AdminDashboard() {
         <Section title="Final scores & reveal">
           <ScoreTable
             rows={finalScores.map((r) => ({
+              id: r.team_id,
               name: r.team_name,
               score: r.weighted_score,
               detail: `${r.vote_count} votes`,
             }))}
           />
-          <div className="flex gap-2 mt-3">
+          <div className="flex flex-wrap gap-2 mt-3">
             <ActionButton onClick={() => call("/api/admin/reveal", { action: "next", stage: "final" })}>
               Reveal next place
             </ActionButton>
+            <ActionButton onClick={() => call("/api/admin/reveal", { action: "revealAll", stage: "final" })}>
+              Reveal all now
+            </ActionButton>
             <ActionButton variant="outline" onClick={() => call("/api/admin/reveal", { action: "reset", stage: "final" })}>
               Reset reveal
+            </ActionButton>
+            <ActionButton
+              variant="outline"
+              onClick={() =>
+                confirmCall(
+                  "Wipe every final-round vote and rank? This can't be undone.",
+                  "/api/admin/reset-scores",
+                  { stage: "final" }
+                )
+              }
+            >
+              Reset votes
             </ActionButton>
           </div>
           <p className="font-mono text-xs text-ink/50 mt-2">
             Current step: {settings?.reveal_step ?? 0} / 5 — open{" "}
             <code>/final/reveal</code> on the big screen.
           </p>
+
+          {finalScores.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-line">
+              <p className="text-sm text-ink/60 mb-2">
+                Push every open browser straight to a team's ballot (skips
+                anyone already identified as a top-5 team member):
+              </p>
+              <div className="flex flex-col gap-1">
+                {finalScores.map((r) => (
+                  <div key={r.team_id} className="flex items-center justify-between py-1">
+                    <span className="text-sm">{r.team_name}</span>
+                    <button
+                      onClick={() => pushEveryoneToTeam(r.team_id)}
+                      className="font-mono text-xs text-teal border border-teal px-2 py-1 hover:bg-teal hover:text-paper transition-colors focus-ring"
+                    >
+                      Push everyone here
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </Section>
+
+        <Section title="People">
+          <p className="text-sm text-ink/60 mb-3">
+            {participants.length} participants · {judges.length} judges ·{" "}
+            {committee.length} committee.
+          </p>
+          <div className="flex flex-col gap-4 max-h-96 overflow-y-auto text-sm">
+            <PeopleGroup
+              label="PARTICIPANTS"
+              rows={participants.map((p) => ({
+                id: p.id,
+                primary: p.full_name,
+                secondary: p.team_id ? teamNameById.get(p.team_id) ?? "—" : "—",
+              }))}
+              onDelete={(id, primary) =>
+                confirmCall(`Remove "${primary}" from the app?`, "/api/admin/people", { id }, "DELETE")
+              }
+            />
+            <PeopleGroup
+              label="JUDGES"
+              rows={judges.map((p) => ({
+                id: p.id,
+                primary: p.full_name,
+                secondary: p.is_independent ? "Independent" : p.company ?? "—",
+              }))}
+              onDelete={(id, primary) =>
+                confirmCall(`Remove "${primary}" from the app?`, "/api/admin/people", { id }, "DELETE")
+              }
+            />
+            <PeopleGroup
+              label="COMMITTEE"
+              rows={committee.map((p) => ({
+                id: p.id,
+                primary: p.full_name,
+                secondary: p.portfolio ?? "—",
+              }))}
+              onDelete={(id, primary) =>
+                confirmCall(`Remove "${primary}" from the app?`, "/api/admin/people", { id }, "DELETE")
+              }
+            />
+          </div>
         </Section>
       </div>
     </PageShell>
+  );
+}
+
+function PeopleGroup({
+  label,
+  rows,
+  onDelete,
+}: {
+  label: string;
+  rows: { id: string; primary: string; secondary: string }[];
+  onDelete: (id: string, primary: string) => void;
+}) {
+  if (rows.length === 0) return null;
+  return (
+    <div>
+      <p className="font-mono text-[10px] text-ink/40 tracking-widest mb-1">{label}</p>
+      <div className="flex flex-col divide-y divide-line">
+        {rows.map((r) => (
+          <div key={r.id} className="flex items-center justify-between py-1.5">
+            <span>
+              {r.primary} <span className="text-ink/40 text-xs ml-1">{r.secondary}</span>
+            </span>
+            <button onClick={() => onDelete(r.id, r.primary)} className="text-ink/30 hover:text-red-700 text-xs focus-ring">
+              remove
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -356,13 +550,15 @@ function ActionButton({
 
 function ScoreTable({
   rows,
+  onDelete,
 }: {
-  rows: { name: string; score: number | null; detail: string }[];
+  rows: { id: string; name: string; score: number | null; detail: string }[];
+  onDelete?: (id: string, name: string) => void;
 }) {
   return (
     <div className="flex flex-col divide-y divide-line text-sm">
       {rows.map((r, i) => (
-        <div key={i} className="flex items-center justify-between py-2">
+        <div key={r.id} className="flex items-center justify-between py-2">
           <span>
             <span className="font-mono text-ink/40 mr-2">{i + 1}</span>
             {r.name}
@@ -370,6 +566,11 @@ function ScoreTable({
           <span className="flex items-center gap-3">
             <span className="text-ink/50 text-xs">{r.detail}</span>
             <span className="font-mono text-teal">{r.score ?? "—"}</span>
+            {onDelete && (
+              <button onClick={() => onDelete(r.id, r.name)} className="text-ink/30 hover:text-red-700 text-xs focus-ring">
+                remove
+              </button>
+            )}
           </span>
         </div>
       ))}

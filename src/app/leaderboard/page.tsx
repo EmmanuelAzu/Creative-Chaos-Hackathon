@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, animate, motion } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import { PageShell } from "@/components/PageShell";
 import type { Round1TeamScore } from "@/lib/types";
@@ -20,6 +20,19 @@ export default function Leaderboard() {
   const [revealed, setRevealed] = useState<RevealTeam[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [liveStandings, setLiveStandings] = useState<Round1TeamScore[]>([]);
+  const [justRevealedRank, setJustRevealedRank] = useState<number | null>(null);
+  const prevStepRef = useRef(0);
+
+  useEffect(() => {
+    if (revealStep > prevStepRef.current) {
+      const rank = 11 - revealStep;
+      setJustRevealedRank(rank);
+      const t = setTimeout(() => setJustRevealedRank(null), 900);
+      prevStepRef.current = revealStep;
+      return () => clearTimeout(t);
+    }
+    prevStepRef.current = revealStep;
+  }, [revealStep]);
 
   useEffect(() => {
     setIsAdmin(!!sessionStorage.getItem("admin_key"));
@@ -150,36 +163,32 @@ export default function Leaderboard() {
       )}
 
       {unlocked && revealStep > 0 && (
-        <div className="max-w-xl">
+        <div className="max-w-xl relative">
+          <AnimatePresence>
+            {justRevealedRank !== null && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 1.1 }}
+                transition={{ duration: 0.25 }}
+                className="absolute inset-0 z-10 flex items-center justify-center bg-ink/90 backdrop-blur-sm"
+              >
+                <motion.span
+                  initial={{ letterSpacing: "0.1em" }}
+                  animate={{ letterSpacing: "0.35em" }}
+                  transition={{ duration: 0.9, ease: "easeOut" }}
+                  className="font-mono text-paper text-sm tracking-widest"
+                >
+                  REVEALING #{justRevealedRank}…
+                </motion.span>
+              </motion.div>
+            )}
+          </AnimatePresence>
           <div className="flex flex-col divide-y divide-line border-t border-b border-line">
             <AnimatePresence>
-              {shownRanks.map((t) => {
-                const advancing = t.round1_rank <= 5;
-                return (
-                  <motion.div
-                    key={t.id}
-                    initial={{ opacity: 0, x: -8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ type: "spring", stiffness: 140, damping: 16 }}
-                    className={`flex items-center justify-between py-4 ${
-                      advancing ? "bg-volt/10 px-2 -mx-2" : ""
-                    }`}
-                  >
-                    <span className="flex items-center gap-4">
-                      <span className="font-mono text-ink/40 w-6">{t.round1_rank}</span>
-                      <span className="text-lg">{t.name}</span>
-                      {advancing && (
-                        <span className="font-mono text-[10px] tracking-widest text-teal border border-teal px-1.5 py-0.5">
-                          ADVANCING
-                        </span>
-                      )}
-                    </span>
-                    <span className="font-mono text-teal text-lg">
-                      {t.aggregate_score ?? "—"}
-                    </span>
-                  </motion.div>
-                );
-              })}
+              {shownRanks.map((t) => (
+                <RevealRow key={t.id} team={t} />
+              ))}
             </AnimatePresence>
             {placeholderRanks.map((rank) => (
               <div key={rank} className="flex items-center justify-between py-4">
@@ -195,4 +204,66 @@ export default function Leaderboard() {
       )}
     </PageShell>
   );
+}
+
+function RevealRow({ team }: { team: RevealTeam }) {
+  const advancing = team.round1_rank <= 5;
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.85, rotateX: -40, y: -12 }}
+      animate={{
+        opacity: 1,
+        scale: 1,
+        rotateX: 0,
+        y: 0,
+        backgroundColor: advancing
+          ? ["rgba(182,255,61,0.35)", "rgba(182,255,61,0.1)"]
+          : ["rgba(18,115,111,0.3)", "rgba(18,115,111,0)"],
+      }}
+      transition={{
+        default: { type: "spring", stiffness: 160, damping: 18 },
+        backgroundColor: { duration: 1.1, ease: "easeOut" },
+      }}
+      style={{ transformPerspective: 600 }}
+      className={`flex items-center justify-between py-4 ${advancing ? "px-2 -mx-2" : ""}`}
+    >
+      <span className="flex items-center gap-4">
+        <motion.span
+          initial={{ scale: 1.6 }}
+          animate={{ scale: 1 }}
+          transition={{ type: "spring", stiffness: 200, damping: 12, delay: 0.1 }}
+          className="font-mono text-ink/40 w-6"
+        >
+          {team.round1_rank}
+        </motion.span>
+        <span className="text-lg">{team.name}</span>
+        {advancing && (
+          <motion.span
+            animate={{ opacity: [0.5, 1, 0.5] }}
+            transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+            className="font-mono text-[10px] tracking-widest text-teal border border-teal px-1.5 py-0.5"
+          >
+            ADVANCING
+          </motion.span>
+        )}
+      </span>
+      <span className="font-mono text-teal text-lg">
+        <CountUpScore value={team.aggregate_score} />
+      </span>
+    </motion.div>
+  );
+}
+
+function CountUpScore({ value }: { value: number | null }) {
+  const [display, setDisplay] = useState(0);
+  useEffect(() => {
+    if (value === null) return;
+    const controls = animate(0, value, {
+      duration: 1,
+      ease: "easeOut",
+      onUpdate: (v) => setDisplay(v),
+    });
+    return () => controls.stop();
+  }, [value]);
+  return <>{value === null ? "—" : display.toFixed(2)}</>;
 }

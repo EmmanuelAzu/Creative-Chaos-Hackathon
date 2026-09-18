@@ -6,6 +6,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { PageShell } from "@/components/PageShell";
 import { ScanTeamButton } from "@/components/ScanTeamButton";
+import { usePanelSync } from "@/lib/panelSync";
 import type { Criteria } from "@/lib/types";
 
 interface Row {
@@ -26,11 +27,17 @@ export default function JudgeDashboard({ params }: { params: { id: string } }) {
   const router = useRouter();
   const [stage, setStage] = useState<"brief" | "judge">("brief");
   const [judgeName, setJudgeName] = useState("");
+  const [panelNumber, setPanelNumber] = useState<number | null>(null);
+  const [panelMates, setPanelMates] = useState<string[]>([]);
   const [criteria, setCriteria] = useState<Criteria[]>([]);
   const [teams, setTeams] = useState<{ id: string; name: string }[]>([]);
   const [graded, setGraded] = useState<Row[]>([]);
   const [pickTeam, setPickTeam] = useState("");
   const [loading, setLoading] = useState(true);
+
+  const { broadcastGoto } = usePanelSync(panelNumber, params.id, (teamId) => {
+    router.push(`/judge/${params.id}/score/${teamId}`);
+  });
 
   useEffect(() => {
     load();
@@ -40,10 +47,21 @@ export default function JudgeDashboard({ params }: { params: { id: string } }) {
     setLoading(true);
     const { data: judge } = await supabase
       .from("people")
-      .select("full_name")
+      .select("full_name, panel_number")
       .eq("id", params.id)
       .maybeSingle();
     setJudgeName(judge?.full_name ?? "");
+    setPanelNumber(judge?.panel_number ?? null);
+
+    if (judge?.panel_number) {
+      const { data: mates } = await supabase
+        .from("people")
+        .select("full_name")
+        .eq("role", "judge")
+        .eq("panel_number", judge.panel_number)
+        .neq("id", params.id);
+      setPanelMates((mates ?? []).map((m) => m.full_name));
+    }
 
     const { data: crit } = await supabase
       .from("criteria")
@@ -80,6 +98,7 @@ export default function JudgeDashboard({ params }: { params: { id: string } }) {
   }
 
   function goToTeam(teamId: string) {
+    broadcastGoto(teamId);
     router.push(`/judge/${params.id}/score/${teamId}`);
   }
 
@@ -95,10 +114,17 @@ export default function JudgeDashboard({ params }: { params: { id: string } }) {
       <PageShell eyebrow={judgeName ? `JUDGE · ${judgeName.toUpperCase()}` : "JUDGE"}>
         <div className="max-w-2xl">
           <h1 className="text-3xl tracking-tight mb-2">Judging briefing</h1>
+          {panelNumber && (
+            <p className="font-mono text-xs text-teal mb-4">
+              PANEL {panelNumber}
+              {panelMates.length > 0 && ` · WITH ${panelMates.join(", ").toUpperCase()}`}
+            </p>
+          )}
           <p className="text-ink/60 mb-8">
             Teams get 5 minutes to pitch/demo, then 2–3 minutes for you to
             finalize scores. Judge for a finished, working solution — teams
-            had a full week.
+            had a full week. Scan or pick a team and your whole panel jumps
+            there with you.
           </p>
 
           {criteria.length === 0 ? (

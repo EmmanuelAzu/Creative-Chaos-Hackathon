@@ -30,6 +30,7 @@ create table people (
   -- judge-only
   company text,               -- null/blank + is_independent = true -> "Independent"
   is_independent boolean default false,
+  panel_number int,           -- judges are auto-grouped into panels of >=3; scanning syncs the whole panel
   -- committee-only
   portfolio text,
   created_at timestamptz not null default now()
@@ -166,13 +167,11 @@ create policy "public read scores" on scores for select using (true);
 create policy "public read final_votes" on final_votes for select using (true);
 create policy "public read settings" on settings for select using (true);
 
--- Public (anon key) can insert their own registration + scores + votes.
--- Only participants can self-register directly (anon key, no gate needed).
--- Judges and committee need an access key, checked server-side in
--- /api/register/* using the service role key, which bypasses this policy —
--- so there's deliberately no public insert policy for those two roles.
-create policy "anyone can register as participant" on people for insert with check (role = 'participant');
-create policy "anyone can create a team at registration" on teams for insert with check (true);
+-- Public (anon key) can insert scores + votes directly. Registering as a
+-- participant, judge, or committee member all require an access key, checked
+-- server-side in /api/register/* using the service role key, which bypasses
+-- RLS — so there's deliberately no public insert policy on people or teams
+-- for any role, and no on-the-fly team/person creation at check-in either.
 create policy "judges can insert their own scores" on scores for insert with check (true);
 create policy "judges can update their own scores" on scores for update using (true);
 create policy "anyone can cast a final vote" on final_votes for insert with check (true);
