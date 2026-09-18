@@ -136,7 +136,7 @@ export default function Leaderboard() {
         </div>
       )}
 
-      {!unlocked && (
+      {!unlocked && revealStep === 0 && (
         <p className="text-ink/60 font-mono text-sm">
           Scores are still coming in ({judgedTeams}/{totalTeams || "—"} teams
           judged so far) — the board unlocks once half the teams are scored.
@@ -162,7 +162,7 @@ export default function Leaderboard() {
         </div>
       )}
 
-      {unlocked && revealStep > 0 && (
+      {revealStep > 0 && (
         <div className="max-w-xl relative">
           <AnimatePresence>
             {justRevealedRank !== null && (
