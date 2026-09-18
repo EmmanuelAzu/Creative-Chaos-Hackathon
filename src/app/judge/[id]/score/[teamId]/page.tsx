@@ -157,9 +157,10 @@ export default function ScoreTeam({
                         max={c.max_score}
                         step={2}
                         value={values[c.id] ?? 0}
-                        onChange={(e) =>
-                          setValues((v) => ({ ...v, [c.id]: Number(e.target.value) }))
-                        }
+                        onChange={(e) => {
+                          setValues((v) => ({ ...v, [c.id]: Number(e.target.value) }));
+                          setSaved(false);
+                        }}
                         className="w-full accent-teal"
                       />
                     </div>

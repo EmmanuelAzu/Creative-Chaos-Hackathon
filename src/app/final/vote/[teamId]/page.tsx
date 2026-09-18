@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { PageShell } from "@/components/PageShell";
 import { useVoterIdentity, VoterPicker } from "@/components/VoterPicker";
-import type { Criteria } from "@/lib/types";
+import type { Criteria, Person } from "@/lib/types";
 
 const JUDGE_WEIGHT = 1.2;
 
@@ -22,6 +22,23 @@ export default function FinalVoteTeam({ params }: { params: { teamId: string } }
   const [error, setError] = useState<string | null>(null);
   const [voteDeadline, setVoteDeadline] = useState<string | null>(null);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
+
+  // The countdown effect below only re-runs when the deadline itself
+  // changes, so its closure would otherwise see whatever values/voter/
+  // criteria were current at that moment — not the latest slider drags —
+  // if it tried to auto-submit on timeout. Refs keep it reading live data.
+  const voterRef = useRef(voter);
+  const criteriaRef = useRef(criteria);
+  const valuesRef = useRef(values);
+  useEffect(() => {
+    voterRef.current = voter;
+  }, [voter]);
+  useEffect(() => {
+    criteriaRef.current = criteria;
+  }, [criteria]);
+  useEffect(() => {
+    valuesRef.current = values;
+  }, [values]);
 
   useEffect(() => {
     load();
@@ -49,7 +66,16 @@ export default function FinalVoteTeam({ params }: { params: { teamId: string } }
     const tick = () => {
       const remaining = Math.ceil((new Date(voteDeadline).getTime() - Date.now()) / 1000);
       setSecondsLeft(Math.max(remaining, 0));
-      if (remaining <= 0) router.push("/final/vote");
+      if (remaining <= 0) {
+        // Auto-submit whatever was set before time ran out, so a voter who
+        // was mid-drag when the clock hit zero doesn't just lose their
+        // work — but only if they'd actually touched a slider; an
+        // untouched ballot shouldn't get silently recorded as all zeros.
+        if (voterRef.current && Object.keys(valuesRef.current).length > 0) {
+          submitVotes(valuesRef.current, voterRef.current, criteriaRef.current);
+        }
+        router.push("/final/vote");
+      }
     };
     tick();
     const interval = setInterval(tick, 1000);
@@ -73,8 +99,13 @@ export default function FinalVoteTeam({ params }: { params: { teamId: string } }
       !!settings?.final_vote_deadline && new Date(settings.final_vote_deadline).getTime() > Date.now();
 
     // Admin has already moved on to a different team — follow them there
-    // instead of waiting for this page's own (now stale) timer.
+    // instead of waiting for this page's own (now stale) timer. Same as the
+    // timeout case: auto-submit anything touched first, since this can fire
+    // mid-vote if the admin advances early, not just once time is up.
     if (pushActive && settings!.final_vote_team_id && settings!.final_vote_team_id !== params.teamId) {
+      if (voterRef.current && Object.keys(valuesRef.current).length > 0) {
+        submitVotes(valuesRef.current, voterRef.current, criteriaRef.current);
+      }
       router.push(`/final/vote/${settings!.final_vote_team_id}`);
       return;
     }
@@ -111,23 +142,36 @@ export default function FinalVoteTeam({ params }: { params: { teamId: string } }
     }
   }
 
-  async function handleSave() {
-    if (!voter) return;
-    setError(null);
-    setSaved(false);
-    const weight = voter.role === "judge" ? JUDGE_WEIGHT : 1;
-    const rows = criteria.map((c) => ({
-      voter_id: voter.id,
+  // Takes its inputs as params (rather than closing over state) so the
+  // timeout auto-submit above can call it with fresh ref values without
+  // needing its own stale copy of this function.
+  async function submitVotes(
+    vals: Record<string, number>,
+    currentVoter: Person,
+    currentCriteria: Criteria[]
+  ): Promise<string | null> {
+    if (currentCriteria.length === 0) return null;
+    const weight = currentVoter.role === "judge" ? JUDGE_WEIGHT : 1;
+    const rows = currentCriteria.map((c) => ({
+      voter_id: currentVoter.id,
       team_id: params.teamId,
       criteria_id: c.id,
-      value: values[c.id] ?? 0,
+      value: vals[c.id] ?? 0,
       weight,
     }));
     const { error: err } = await supabase
       .from("final_votes")
       .upsert(rows, { onConflict: "voter_id,team_id,criteria_id" });
-    if (err) {
-      setError(err.message);
+    return err?.message ?? null;
+  }
+
+  async function handleSave() {
+    if (!voter) return;
+    setError(null);
+    setSaved(false);
+    const errMsg = await submitVotes(values, voter, criteria);
+    if (errMsg) {
+      setError(errMsg);
       return;
     }
     setSaved(true);
@@ -200,7 +244,10 @@ export default function FinalVoteTeam({ params }: { params: { teamId: string } }
                 max={c.max_score}
                 step={2}
                 value={values[c.id] ?? 0}
-                onChange={(e) => setValues((v) => ({ ...v, [c.id]: Number(e.target.value) }))}
+                onChange={(e) => {
+                  setValues((v) => ({ ...v, [c.id]: Number(e.target.value) }));
+                  setSaved(false);
+                }}
                 className="w-full accent-teal"
               />
             </div>
