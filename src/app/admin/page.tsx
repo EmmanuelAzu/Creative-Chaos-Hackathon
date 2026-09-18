@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { PageShell } from "@/components/PageShell";
+import { broadcastGotoPage, broadcastGotoVote } from "@/lib/audienceBroadcast";
 import type { Round1TeamScore, FinalTeamScore, Settings, Criteria, Person } from "@/lib/types";
 
 interface TeamRow {
@@ -45,12 +46,14 @@ export default function AdminDashboard() {
     const { data: r1 } = await supabase
       .from("round1_team_scores")
       .select("*")
-      .order("aggregate_score", { ascending: false, nullsFirst: false });
+      .order("aggregate_score", { ascending: false, nullsFirst: false })
+      .order("team_name", { ascending: true });
     setRound1((r1 as Round1TeamScore[]) ?? []);
     const { data: fs } = await supabase
       .from("final_team_scores")
       .select("*")
-      .order("weighted_score", { ascending: false, nullsFirst: false });
+      .order("weighted_score", { ascending: false, nullsFirst: false })
+      .order("team_name", { ascending: true });
     setFinalScores((fs as FinalTeamScore[]) ?? []);
     const { data: crit } = await supabase
       .from("criteria")
@@ -112,30 +115,14 @@ export default function AdminDashboard() {
 
   async function pushEveryoneToTeam(teamId: string) {
     const excludeTeamIds = finalScores.map((r) => r.team_id);
-    const channel = supabase.channel("audience-nav");
-    await channel.send({
-      type: "broadcast",
-      event: "goto-vote",
-      payload: { teamId, excludeTeamIds },
-    });
-    supabase.removeChannel(channel);
+    await broadcastGotoVote(teamId, excludeTeamIds);
     setMessage("Pushed — every open browser (except top-5 teams) just jumped to that ballot.");
-  }
-
-  async function pushEveryoneToPage(path: string) {
-    const channel = supabase.channel("audience-nav");
-    await channel.send({
-      type: "broadcast",
-      event: "goto-page",
-      payload: { path },
-    });
-    supabase.removeChannel(channel);
   }
 
   async function callAndPush(path: string, body: any, pagePath: string) {
     const result = await call(path, body);
     if (result === null) return; // call() already surfaced the error
-    await pushEveryoneToPage(pagePath);
+    await broadcastGotoPage(pagePath);
     setMessage(`Done — every open browser just jumped to ${pagePath}.`);
   }
 

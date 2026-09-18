@@ -5,6 +5,7 @@ const sponsors = [
   { src: "/sponsors/boxfusion.png", alt: "Boxfusion", w: 110 },
   { src: "/sponsors/offerzen.jpg", alt: "OfferZen", w: 100 },
   { src: "/sponsors/enactus.png", alt: "Enactus Wits", w: 130 },
+  { src: "/sponsors/anylytical.png", alt: "Anylytical Technologies", w: 140, h: 33 },
 ];
 
 export function SponsorStrip({ dark = false }: { dark?: boolean }) {
@@ -24,7 +25,7 @@ export function SponsorStrip({ dark = false }: { dark?: boolean }) {
             className={dark ? "bg-paper px-3 py-2" : "px-1"}
             style={{ display: "inline-block" }}
           >
-            <Image src={s.src} alt={s.alt} width={s.w} height={s.w / 2.6} style={{ objectFit: "contain", height: "auto" }} />
+            <Image src={s.src} alt={s.alt} width={s.w} height={s.h ?? s.w / 2.6} style={{ objectFit: "contain", height: "auto" }} />
           </div>
         ))}
       </div>

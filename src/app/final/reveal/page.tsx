@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import { Logo } from "@/components/Logo";
-import { SponsorStrip } from "@/components/SponsorStrip";
 
 interface RevealTeam {
   id: string;
@@ -143,10 +142,6 @@ export default function Reveal() {
             </motion.div>
           ))}
         </AnimatePresence>
-      </div>
-
-      <div className="absolute bottom-6 sm:bottom-8 px-4">
-        <SponsorStrip dark />
       </div>
     </div>
   );

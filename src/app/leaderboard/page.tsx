@@ -71,7 +71,8 @@ export default function Leaderboard() {
       const { data: live } = await supabase
         .from("round1_team_scores")
         .select("*")
-        .order("aggregate_score", { ascending: false, nullsFirst: false });
+        .order("aggregate_score", { ascending: false, nullsFirst: false })
+        .order("team_name", { ascending: true });
       setLiveStandings((live as Round1TeamScore[]) ?? []);
     }
 
