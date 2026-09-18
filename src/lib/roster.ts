@@ -66,7 +66,10 @@ export async function renderRosterPdf(teamsWithPeople: RosterTeam[]): Promise<Ui
   for (const team of teamsWithPeople) {
     ensureSpace(20 + 16 * Math.max(team.participants.length, 1) + 10);
 
-    drawText(team.name.toUpperCase(), bold, 12, INK);
+    // Drawn exactly as stored — the whole point of this roster is letting
+    // someone check the precise spelling/casing/spacing they registered
+    // with, so it must not be normalized here.
+    drawText(team.name, bold, 12, INK);
     y -= 16;
 
     if (team.participants.length === 0) {
