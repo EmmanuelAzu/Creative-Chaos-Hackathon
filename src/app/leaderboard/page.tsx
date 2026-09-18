@@ -106,7 +106,7 @@ export default function Leaderboard() {
   const placeholderRanks = Array.from({ length: 10 - shownRanks.length }, (_, i) => 10 - i - shownRanks.length);
 
   return (
-    <PageShell eyebrow="LEADERBOARD">
+    <PageShell eyebrow="LEADERBOARD" themable={false}>
       <h1 className="text-3xl tracking-tight mb-8">Round 1 leaderboard</h1>
 
       {isAdmin && (

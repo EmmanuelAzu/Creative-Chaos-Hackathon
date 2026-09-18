@@ -143,7 +143,7 @@ export default function AdminDashboard() {
           <h1 className="text-2xl tracking-tight mb-4">Admin access</h1>
           <input
             type="password"
-            className="border border-line bg-white px-3 py-2 w-full mb-3 focus-ring"
+            className="border border-line bg-surface px-3 py-2 w-full mb-3 focus-ring"
             placeholder="Dashboard key"
             value={key}
             onChange={(e) => setKey(e.target.value)}
@@ -188,7 +188,7 @@ export default function AdminDashboard() {
         <Section title="Import teams from CSV">
           <p className="text-sm text-ink/60 mb-3">One team name per line.</p>
           <textarea
-            className="border border-line bg-white w-full h-28 p-2 text-sm mb-3 focus-ring"
+            className="border border-line bg-surface w-full h-28 p-2 text-sm mb-3 focus-ring"
             value={csvText}
             onChange={(e) => setCsvText(e.target.value)}
             placeholder={"The Night Owls\nByte Me\nHackstreet Boys"}
@@ -208,7 +208,7 @@ export default function AdminDashboard() {
           <div className="flex flex-col gap-2 mb-3">
             <div className="flex flex-col sm:flex-row gap-2">
               <select
-                className="border border-line bg-white px-2 py-2 text-sm min-w-0"
+                className="border border-line bg-surface px-2 py-2 text-sm min-w-0"
                 value={criteriaStage}
                 onChange={(e) => setCriteriaStage(e.target.value as any)}
               >
@@ -216,28 +216,28 @@ export default function AdminDashboard() {
                 <option value="final">Final</option>
               </select>
               <input
-                className="border border-line bg-white px-2 py-2 text-sm flex-1 min-w-0"
+                className="border border-line bg-surface px-2 py-2 text-sm flex-1 min-w-0"
                 placeholder="Criterion name"
                 value={criteriaName}
                 onChange={(e) => setCriteriaName(e.target.value)}
               />
               <input
                 type="number"
-                className="border border-line bg-white px-2 py-2 text-sm w-full sm:w-20 min-w-0"
+                className="border border-line bg-surface px-2 py-2 text-sm w-full sm:w-20 min-w-0"
                 value={criteriaMax}
                 onChange={(e) => setCriteriaMax(Number(e.target.value))}
               />
             </div>
             <div className="flex gap-2">
               <input
-                className="border border-line bg-white px-2 py-2 text-sm flex-1"
+                className="border border-line bg-surface px-2 py-2 text-sm flex-1"
                 placeholder="Category (optional, e.g. Technical Implementation)"
                 value={criteriaCategory}
                 onChange={(e) => setCriteriaCategory(e.target.value)}
               />
             </div>
             <input
-              className="border border-line bg-white px-2 py-2 text-sm"
+              className="border border-line bg-surface px-2 py-2 text-sm"
               placeholder="Prompt to ask the team (optional)"
               value={criteriaPrompt}
               onChange={(e) => setCriteriaPrompt(e.target.value)}
@@ -346,7 +346,7 @@ export default function AdminDashboard() {
               variant="outline"
               onClick={() =>
                 confirmCall(
-                  "Wipe every Round 1 score and rank? This can't be undone.",
+                  "Wipe every Round 1 score, rank, and the top-5 designation? This can't be undone.",
                   "/api/admin/reset-scores",
                   { stage: "round1" }
                 )
@@ -537,7 +537,7 @@ function CriterionRow({ c, onDelete }: { c: Criteria; onDelete: () => void }) {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="border border-line p-5 bg-white/40">
+    <div className="border border-line p-5 bg-surface/40">
       <h2 className="font-mono text-xs text-teal mb-3">{title.toUpperCase()}</h2>
       {children}
     </div>

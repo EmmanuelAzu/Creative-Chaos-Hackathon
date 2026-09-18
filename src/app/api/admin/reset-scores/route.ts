@@ -12,7 +12,12 @@ export async function POST(req: NextRequest) {
   if (stage === "round1") {
     const { error: scoresErr } = await admin.from("scores").delete().not("id", "is", null);
     if (scoresErr) return NextResponse.json({ error: scoresErr.message }, { status: 500 });
-    const { error: teamsErr } = await admin.from("teams").update({ round1_rank: null }).not("id", "is", null);
+    // Clears round1_rank AND is_top5 together — the old top-5 designation was
+    // derived from these standings, so it's stale the moment they're wiped.
+    const { error: teamsErr } = await admin
+      .from("teams")
+      .update({ round1_rank: null, is_top5: false })
+      .not("id", "is", null);
     if (teamsErr) return NextResponse.json({ error: teamsErr.message }, { status: 500 });
     await admin.from("settings").update({ round1_reveal_step: 0 }).eq("id", true);
     return NextResponse.json({ reset: "round1" });
@@ -23,7 +28,12 @@ export async function POST(req: NextRequest) {
     if (votesErr) return NextResponse.json({ error: votesErr.message }, { status: 500 });
     const { error: teamsErr } = await admin.from("teams").update({ final_rank: null }).not("id", "is", null);
     if (teamsErr) return NextResponse.json({ error: teamsErr.message }, { status: 500 });
-    await admin.from("settings").update({ reveal_step: 0 }).eq("id", true);
+    // Also clear any live "push everyone here" timer — it points at a ballot
+    // whose votes just got wiped, so it can't be left running.
+    await admin
+      .from("settings")
+      .update({ reveal_step: 0, final_vote_team_id: null, final_vote_deadline: null })
+      .eq("id", true);
     return NextResponse.json({ reset: "final" });
   }
 

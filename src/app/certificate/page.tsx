@@ -33,7 +33,7 @@ export default function CertificateFinder() {
           Search the name you registered with.
         </p>
         <input
-          className="border border-line bg-white px-3 py-2 w-full mb-3 focus-ring"
+          className="border border-line bg-surface px-3 py-2 w-full mb-3 focus-ring"
           placeholder="Start typing your name…"
           value={search}
           onChange={(e) => runSearch(e.target.value)}
@@ -44,7 +44,7 @@ export default function CertificateFinder() {
             <button
               key={m.id}
               onClick={() => setPicked(m)}
-              className="text-left py-3 hover:bg-white/60 transition-colors focus-ring"
+              className="text-left py-3 hover:bg-surface/60 transition-colors focus-ring"
             >
               {m.full_name}{" "}
               <span className="font-mono text-xs text-ink/40 ml-2">{m.role}</span>

@@ -43,7 +43,7 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
           {members?.length ?? 0} member{members?.length === 1 ? "" : "s"} registered
         </p>
 
-        <div className="border border-line bg-white p-8 inline-block">
+        <div className="border border-line bg-surface p-8 inline-block">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={qrDataUrl} alt={`QR code for ${team.name}`} width={280} height={280} />
         </div>
@@ -57,7 +57,7 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
           <div className="mt-10 pt-8 border-t border-line">
             <p className="font-mono text-xs text-volt mb-2">YOU'RE IN THE TOP 5 🎉</p>
             <h2 className="text-xl tracking-tight mb-4">Final round voting QR</h2>
-            <div className="border border-line bg-white p-8 inline-block">
+            <div className="border border-line bg-surface p-8 inline-block">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={finalVoteQrDataUrl}

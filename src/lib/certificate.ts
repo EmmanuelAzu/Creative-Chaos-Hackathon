@@ -23,8 +23,8 @@ const HEX = {
   muted: "#B7BDC6",
 };
 
-const PLACE_WORDS = ["", "1ST", "2ND", "3RD", "4TH", "5TH"];
-const PLACE_WORDS_TITLE = ["", "1st", "2nd", "3rd", "4th", "5th"];
+const PLACE_WORDS = ["", "1ST", "2ND", "3RD", "4TH", "5TH", "6TH", "7TH", "8TH", "9TH", "10TH"];
+const PLACE_WORDS_TITLE = ["", "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th"];
 
 /** Works out what a person's certificate should say, based on live standings. */
 export async function resolveTier(person: Person): Promise<Tier> {
@@ -66,18 +66,20 @@ export async function resolveTier(person: Person): Promise<Tier> {
       };
     }
 
-    // Not in the final 5 — fall back to round-1 standing for a top-10 shout-out.
+    // Not in the final 5 — fall back to round-1 standing for a top-10 shout-out,
+    // naming their actual position rather than a generic "top 10" label.
     const { data: ranked } = await admin
       .from("round1_team_scores")
       .select("team_id")
-      .order("aggregate_score", { ascending: false, nullsFirst: false });
+      .order("aggregate_score", { ascending: false, nullsFirst: false })
+      .order("team_name", { ascending: true });
     const position = (ranked ?? []).findIndex((r) => r.team_id === person.team_id) + 1;
     if (position >= 6 && position <= 10) {
       return {
-        title: "Top 10 Finalist",
-        subtitle: "TOP 10 FINALIST",
+        title: `${PLACE_WORDS_TITLE[position]} Place`,
+        subtitle: `${PLACE_WORDS[position]} PLACE`,
         accentHex: HEX.volt,
-        resultLine: "placing in the top 10 teams of round one",
+        resultLine: `and placed ${PLACE_WORDS[position].toLowerCase()} in round one, finishing in the top 10`,
       };
     }
   }
@@ -116,7 +118,14 @@ const NAME_BASELINE_Y = 668;
 const TEAM_ERASE = { x0: 650, y0: 745, x1: 1370, y1: 797 };
 const TEAM_CENTER_X = 1010;
 const TEAM_BASELINE_Y = 790;
-// Sampled from the template's background right around both placeholders.
+// The template's baked-in "OF PARTICIPATION" subtitle, under the static
+// "CERTIFICATE" heading — replaced with the tier's own subtitle (e.g. "6TH
+// PLACE", "OF APPRECIATION") so the result/placement actually shows up on
+// the PDF instead of every certificate reading "OF PARTICIPATION".
+const SUBTITLE_ERASE = { x0: 620, y0: 265, x1: 1380, y1: 355 };
+const SUBTITLE_CENTER_X = 1010;
+const SUBTITLE_BASELINE_Y = 348;
+// Sampled from the template's background right around all three placeholders.
 const ERASE_FILL = rgb(0 / 255, 5 / 255, 11 / 255);
 
 export async function renderCertificatePdf(
@@ -137,6 +146,12 @@ export async function renderCertificatePdf(
 
   const cyan = hexToRgb(HEX.cyan);
   const accent = hexToRgb(tier.accentHex);
+
+  // ---------- subtitle (result/placement) ----------
+  eraseImgRect(page, SUBTITLE_ERASE);
+  const subtitlePt = pt(SUBTITLE_CENTER_X, SUBTITLE_BASELINE_Y);
+  const subtitleMaxWidthPt = (SUBTITLE_ERASE.x1 - SUBTITLE_ERASE.x0) * SCALE * 0.94;
+  drawFitCentered(page, tier.subtitle, subtitlePt.x, subtitlePt.y, 25, chakraBold, accent, subtitleMaxWidthPt);
 
   // ---------- name ----------
   eraseImgRect(page, NAME_ERASE);

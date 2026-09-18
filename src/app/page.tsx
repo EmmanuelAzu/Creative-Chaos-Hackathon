@@ -4,6 +4,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { Logo } from "@/components/Logo";
 import { SponsorStrip } from "@/components/SponsorStrip";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const roles = [
   {
@@ -28,18 +29,21 @@ const roles = [
 
 export default function Home() {
   return (
-    <div className="min-h-screen flex flex-col px-6 md:px-10">
+    <div className="theme-scope min-h-screen flex flex-col px-6 md:px-10 bg-paper text-ink">
       <header className="flex items-center justify-between py-5">
         <div className="flex items-center gap-3">
           <Logo size={36} />
           <span className="font-medium tracking-tight">Creative Chaos</span>
         </div>
-        <Link
-          href="/leaderboard"
-          className="text-sm font-mono text-teal hover:text-teal-deep transition-colors focus-ring"
-        >
-          Leaderboard →
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link
+            href="/leaderboard"
+            className="text-sm font-mono text-teal hover:text-teal-deep transition-colors focus-ring"
+          >
+            Leaderboard →
+          </Link>
+          <ThemeToggle />
+        </div>
       </header>
 
       <main className="flex-1 grid md:grid-cols-2 gap-12 items-center py-10 md:py-16">
@@ -77,7 +81,7 @@ export default function Home() {
             <Link
               key={r.href}
               href={r.href}
-              className="group border border-line hover:border-teal bg-white/40 px-6 py-5 flex items-center justify-between transition-colors focus-ring"
+              className="group border border-line hover:border-teal bg-surface/40 px-6 py-5 flex items-center justify-between transition-colors focus-ring"
             >
               <div>
                 <div className="flex items-baseline gap-3">

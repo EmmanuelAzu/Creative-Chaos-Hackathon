@@ -63,7 +63,7 @@ export function VoterPicker({ onPick }: { onPick: (p: Person) => void }) {
       <h1 className="text-3xl tracking-tight mb-2">Who's voting?</h1>
       <p className="text-ink/60 mb-6">Find your name to continue.</p>
       <input
-        className="border border-line bg-white px-3 py-2 w-full mb-3 focus-ring"
+        className="border border-line bg-surface px-3 py-2 w-full mb-3 focus-ring"
         placeholder="Start typing your name…"
         value={search}
         onChange={(e) => runSearch(e.target.value)}
@@ -74,7 +74,7 @@ export function VoterPicker({ onPick }: { onPick: (p: Person) => void }) {
           <button
             key={m.id}
             onClick={() => onPick(m)}
-            className="text-left py-3 hover:bg-white/60 transition-colors focus-ring"
+            className="text-left py-3 hover:bg-surface/60 transition-colors focus-ring"
           >
             {m.full_name}{" "}
             <span className="font-mono text-xs text-ink/40 ml-2">{m.role}</span>

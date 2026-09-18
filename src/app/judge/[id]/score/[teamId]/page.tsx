@@ -114,7 +114,7 @@ export default function ScoreTeam({
             <h1 className="text-3xl tracking-tight">{teamName || "—"}</h1>
           </div>
           <select
-            className="border border-line bg-white px-3 py-2 text-sm focus-ring"
+            className="border border-line bg-surface px-3 py-2 text-sm focus-ring"
             value={params.teamId}
             onChange={(e) => switchTeam(e.target.value)}
           >

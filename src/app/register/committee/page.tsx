@@ -91,7 +91,6 @@ export default function CommitteeRegister() {
           </button>
         </form>
       </div>
-      <style>{`.reg-input{border:1px solid #D8E4DE;background:white;padding:.75rem 1rem;outline:none;} .reg-input:focus{border-color:#12736F;}`}</style>
     </PageShell>
   );
 }

@@ -134,7 +134,7 @@ export default function JudgeDashboard({ params }: { params: { id: string } }) {
           ) : (
             <div className="flex flex-col gap-6 mb-8">
               {Array.from(grouped.entries()).map(([category, items]) => (
-                <div key={category} className="border border-line p-4 bg-white/40">
+                <div key={category} className="border border-line p-4 bg-surface/40">
                   <div className="flex items-baseline justify-between mb-3">
                     <h2 className="text-lg">{category}</h2>
                     <span className="font-mono text-xs text-teal">
@@ -205,7 +205,7 @@ export default function JudgeDashboard({ params }: { params: { id: string } }) {
 
         <div className="flex gap-2 mb-10">
           <select
-            className="border border-line bg-white px-3 py-2 text-sm flex-1 focus-ring"
+            className="border border-line bg-surface px-3 py-2 text-sm flex-1 focus-ring"
             value={pickTeam}
             onChange={(e) => setPickTeam(e.target.value)}
           >
@@ -232,7 +232,7 @@ export default function JudgeDashboard({ params }: { params: { id: string } }) {
               <Link
                 key={r.team_id}
                 href={`/judge/${params.id}/score/${r.team_id}`}
-                className="flex items-center justify-between py-4 hover:bg-white/50 transition-colors px-2 -mx-2 focus-ring"
+                className="flex items-center justify-between py-4 hover:bg-surface/50 transition-colors px-2 -mx-2 focus-ring"
               >
                 <span className="text-lg">{r.team_name}</span>
                 <span

@@ -146,7 +146,7 @@ export default function FinalVoteIndex() {
           <Link
             key={t.id}
             href={`/final/vote/${t.id}`}
-            className="flex items-center justify-between py-4 hover:bg-white/50 transition-colors px-2 -mx-2 focus-ring"
+            className="flex items-center justify-between py-4 hover:bg-surface/50 transition-colors px-2 -mx-2 focus-ring"
           >
             <span className="text-lg">{t.name}</span>
             <span

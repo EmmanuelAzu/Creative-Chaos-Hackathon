@@ -27,6 +27,19 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${spaceGrotesk.variable} ${plexMono.variable}`}>
+      <head>
+        {/* Applies the saved/preferred theme before first paint, so themed
+            pages don't flash light before switching to dark on load. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try {
+              var t = localStorage.getItem("theme");
+              var d = t ? t === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+              if (d) document.documentElement.classList.add("dark");
+            } catch (e) {}`,
+          }}
+        />
+      </head>
       <body className="bg-paper font-sans min-h-screen antialiased">
         <AudienceNavListener />
         {children}

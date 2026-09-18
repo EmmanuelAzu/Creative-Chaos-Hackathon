@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 
+// GET has no dynamic function calls, so Next's Full Route Cache would
+// otherwise cache the response indefinitely and never reflect later PATCHes.
+export const dynamic = "force-dynamic";
+
 function checkAuth(req: NextRequest) {
   const key = req.headers.get("x-admin-key");
   return key === process.env.ADMIN_DASHBOARD_KEY;

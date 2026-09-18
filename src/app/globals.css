@@ -10,6 +10,38 @@
   }
 }
 
+/* Theme tokens, as "R G B" triples so Tailwind's rgb(var(--x) / <alpha-value>)
+   colors (see tailwind.config.ts) support opacity modifiers like text-ink/60.
+   Defaults here are the site's original light palette, unchanged. They're
+   only overridden inside a ".theme-scope" element while <html> carries
+   "dark" — pages that never render .theme-scope (the big-screen /leaderboard
+   and /final/reveal displays) always render these original values, so the
+   toggle can't touch their fixed, deliberately-dark ceremony look. */
+:root {
+  --ink: 18 20 61;
+  --paper: 245 247 240;
+  --line: 216 220 236;
+  --surface: 255 255 255;
+  --teal: 18 115 111;
+  --teal-light: 79 189 182;
+  --teal-deep: 10 74 71;
+  --divider: 18 115 111;
+}
+
+html.dark .theme-scope {
+  --ink: 245 247 240;
+  --paper: 10 12 22;
+  --line: 45 52 74;
+  --surface: 22 26 40;
+  /* Dark mode's accent set: cyan takes over teal's role, royal blue accents
+     dividers/secondary borders. Neon (volt) is unchanged — it already reads
+     well on both backgrounds, so every existing volt usage carries over. */
+  --teal: 41 217 234;
+  --teal-light: 138 235 247;
+  --teal-deep: 24 140 158;
+  --divider: 61 90 254;
+}
+
 html {
   background: #F5F7F0;
 }
@@ -24,7 +56,7 @@ body {
 }
 
 .circuit-rule {
-  background-image: linear-gradient(90deg, #12736F 0 6px, transparent 6px 10px);
+  background-image: linear-gradient(90deg, rgb(var(--divider)) 0 6px, transparent 6px 10px);
   background-size: 10px 2px;
   background-repeat: repeat-x;
   background-position: bottom;
@@ -32,6 +64,22 @@ body {
 }
 
 .focus-ring:focus-visible {
-  outline: 2px solid #12736F;
+  outline: 2px solid rgb(var(--teal));
   outline-offset: 2px;
+}
+
+/* Shared by the three registration forms — theme-aware so it doesn't stay a
+   hardcoded white box once the page around it goes dark. */
+.reg-input {
+  border: 1px solid rgb(var(--line));
+  background: rgb(var(--surface));
+  color: rgb(var(--ink));
+  padding: .75rem 1rem;
+  outline: none;
+}
+.reg-input::placeholder {
+  color: rgb(var(--ink) / 0.4);
+}
+.reg-input:focus {
+  border-color: rgb(var(--teal));
 }
