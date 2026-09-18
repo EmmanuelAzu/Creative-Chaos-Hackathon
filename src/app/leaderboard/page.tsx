@@ -18,8 +18,11 @@ export default function Leaderboard() {
   const [judgedTeams, setJudgedTeams] = useState(0);
   const [revealStep, setRevealStep] = useState(0);
   const [revealed, setRevealed] = useState<RevealTeam[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [liveStandings, setLiveStandings] = useState<Round1TeamScore[]>([]);
 
   useEffect(() => {
+    setIsAdmin(!!sessionStorage.getItem("admin_key"));
     load();
     const channel = supabase
       .channel("leaderboard")
@@ -50,6 +53,14 @@ export default function Leaderboard() {
       .select("team_id, aggregate_score, judges_scored");
     const judged = (scores ?? []).filter((r) => (r.judges_scored ?? 0) > 0).length;
     setJudgedTeams(judged);
+
+    if (sessionStorage.getItem("admin_key")) {
+      const { data: live } = await supabase
+        .from("round1_team_scores")
+        .select("*")
+        .order("aggregate_score", { ascending: false, nullsFirst: false });
+      setLiveStandings((live as Round1TeamScore[]) ?? []);
+    }
 
     if (step > 0) {
       const { data: teams } = await supabase
@@ -83,6 +94,34 @@ export default function Leaderboard() {
   return (
     <PageShell eyebrow="LEADERBOARD">
       <h1 className="text-3xl tracking-tight mb-8">Round 1 leaderboard</h1>
+
+      {isAdmin && (
+        <div className="max-w-xl mb-10 border border-teal/40 bg-teal/5 p-5">
+          <p className="font-mono text-[10px] tracking-widest text-teal mb-3">
+            ADMIN PREVIEW · LIVE STANDINGS — NOT VISIBLE TO THE PUBLIC
+          </p>
+          <div className="flex flex-col divide-y divide-line text-sm">
+            {liveStandings.map((r, i) => (
+              <div key={r.team_id} className="flex items-center justify-between py-2">
+                <span>
+                  <span className="font-mono text-ink/40 mr-2">{i + 1}</span>
+                  {r.team_name}
+                </span>
+                <span className="flex items-center gap-3">
+                  <span className="text-ink/50 text-xs">
+                    {r.judges_scored} judge{r.judges_scored === 1 ? "" : "s"}
+                  </span>
+                  <span className="font-mono text-teal">{r.aggregate_score ?? "—"}</span>
+                </span>
+              </div>
+            ))}
+            {liveStandings.length === 0 && <p className="text-ink/50 py-2">No scores yet.</p>}
+          </div>
+          <p className="font-mono text-[10px] text-ink/40 tracking-widest mt-4">
+            BELOW: EXACTLY WHAT THE PUBLIC CURRENTLY SEES ↓
+          </p>
+        </div>
+      )}
 
       {!unlocked && (
         <p className="text-ink/60 font-mono text-sm">
