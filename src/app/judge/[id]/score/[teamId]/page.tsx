@@ -155,7 +155,12 @@ export default function ScoreTeam({
                         type="range"
                         min={0}
                         max={c.max_score}
-                        step={2}
+                        // step 2 for the reduced sensitivity — but only when
+                        // it evenly divides max_score. Otherwise the 0-step
+                        // grid (0,2,4,...) never lands exactly on an odd
+                        // max, so no one could ever give (or reach) full
+                        // marks on that criterion.
+                        step={c.max_score % 2 === 0 ? 2 : 1}
                         value={values[c.id] ?? 0}
                         onChange={(e) => {
                           setValues((v) => ({ ...v, [c.id]: Number(e.target.value) }));
