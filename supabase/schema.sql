@@ -161,20 +161,32 @@ insert into criteria (stage, category, name, prompt, max_score, sort_order) valu
 -- then averaged across judges. There's no fixed judge-per-team assignment —
 -- judges score whichever teams they scan, so this simply reflects however
 -- many have scored so far.
+--
+-- Written as two clean steps (per-judge totals, then one aggregation over
+-- those) rather than joining the raw scores rows a second time alongside
+-- the grouped subquery — the old version's cross join was mathematically
+-- equivalent (duplicated every judge's total by the same factor, which
+-- cancels out of an average) but confusing enough to look like a bug at a
+-- glance, which isn't a property a scoring query should have.
 create view round1_team_scores as
 select
   t.id as team_id,
   t.name as team_name,
-  count(distinct s.judge_id) as judges_scored,
-  round(avg(per_judge.judge_total), 2) as aggregate_score
+  coalesce(per_judge.judges_scored, 0) as judges_scored,
+  round(per_judge.aggregate_score, 2) as aggregate_score
 from teams t
 left join (
-  select team_id, judge_id, sum(value) as judge_total
-  from scores
-  group by team_id, judge_id
-) per_judge on per_judge.team_id = t.id
-left join scores s on s.team_id = t.id
-group by t.id, t.name;
+  select
+    team_id,
+    count(distinct judge_id) as judges_scored,
+    avg(judge_total) as aggregate_score
+  from (
+    select team_id, judge_id, sum(value) as judge_total
+    from scores
+    group by team_id, judge_id
+  ) totals_per_judge
+  group by team_id
+) per_judge on per_judge.team_id = t.id;
 
 -- Final stage: each voter's total across the 3 criteria (out of 100), then a
 -- weight-adjusted average across voters (judges count 1.2x).
