@@ -95,7 +95,11 @@ create table settings (
   -- next push. Null final_vote_team_id = no active timed window (e.g. a
   -- walk-up voter who scanned the table QR on their own gets no timer).
   final_vote_team_id uuid references teams(id),
-  final_vote_deadline timestamptz
+  final_vote_deadline timestamptz,
+  -- Admin override that blanks the public /leaderboard page regardless of
+  -- what phase it would otherwise be in (live, blurred, mid-reveal) — for
+  -- pausing it during a break or an issue without losing reveal progress.
+  leaderboard_hidden boolean not null default false
 );
 insert into settings (id) values (true);
 

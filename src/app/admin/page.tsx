@@ -371,9 +371,20 @@ export default function AdminDashboard() {
               Reset scores
             </ActionButton>
           </div>
-          <p className="font-mono text-xs text-ink/50 mt-2">
+          <p className="font-mono text-xs text-ink/50 mt-2 mb-3">
             Current step: {settings?.round1_reveal_step ?? 0} / 10 — open{" "}
             <code>/leaderboard</code> on the big screen.
+          </p>
+          <ActionButton
+            variant={settings?.leaderboard_hidden ? "solid" : "outline"}
+            onClick={() => patchSettings({ leaderboard_hidden: !settings?.leaderboard_hidden })}
+          >
+            {settings?.leaderboard_hidden ? "Show leaderboard" : "Hide leaderboard"}
+          </ActionButton>
+          <p className="font-mono text-xs text-ink/50 mt-2">
+            {settings?.leaderboard_hidden
+              ? "Currently hidden from the public — reveal progress is untouched, just paused."
+              : "Blanks /leaderboard for everyone but admins — e.g. during a break — without losing reveal progress."}
           </p>
         </Section>
 

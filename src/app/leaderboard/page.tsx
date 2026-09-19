@@ -17,6 +17,7 @@ export default function Leaderboard() {
   const [totalTeams, setTotalTeams] = useState(0);
   const [judgedTeams, setJudgedTeams] = useState(0);
   const [revealStep, setRevealStep] = useState(0);
+  const [hidden, setHidden] = useState(false);
   const [revealed, setRevealed] = useState<RevealTeam[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [liveStandings, setLiveStandings] = useState<Round1TeamScore[]>([]);
@@ -51,10 +52,11 @@ export default function Leaderboard() {
   async function load() {
     const { data: settings } = await supabase
       .from("settings")
-      .select("round1_reveal_step")
+      .select("round1_reveal_step, leaderboard_hidden")
       .single();
     const step = settings?.round1_reveal_step ?? 0;
     setRevealStep(step);
+    setHidden(settings?.leaderboard_hidden ?? false);
 
     const { count: teamCount } = await supabase
       .from("teams")
@@ -118,7 +120,9 @@ export default function Leaderboard() {
       {isAdmin && (
         <div className="max-w-xl mb-10 border border-teal/40 bg-teal/5 p-5">
           <p className="font-mono text-[10px] tracking-widest text-teal mb-3">
-            {finalStretch
+            {hidden
+              ? "ADMIN PREVIEW · BOARD HIDDEN FROM THE PUBLIC"
+              : finalStretch
               ? "ADMIN PREVIEW · TOP 10 NOT VISIBLE TO THE PUBLIC YET"
               : "ADMIN PREVIEW · ALL TEAMS — PUBLIC BOARD BELOW ALREADY SHOWS THE TOP 10 LIVE"}
           </p>
@@ -147,7 +151,13 @@ export default function Leaderboard() {
         </div>
       )}
 
-      {!finalStretch && revealStep === 0 && (
+      {hidden && (
+        <p className="text-ink/60 font-mono text-sm">
+          The leaderboard is currently hidden — check back shortly.
+        </p>
+      )}
+
+      {!hidden && !finalStretch && revealStep === 0 && (
         <div className="max-w-xl">
           <p className="text-ink/60 font-mono text-sm mb-6 flex items-center gap-2">
             <motion.span
@@ -172,7 +182,7 @@ export default function Leaderboard() {
         </div>
       )}
 
-      {finalStretch && revealStep === 0 && (
+      {!hidden && finalStretch && revealStep === 0 && (
         <div className="max-w-xl">
           <p className="text-ink/60 font-mono text-sm mb-6">
             Voting's complete — full standings below, except the top 10, which
@@ -189,7 +199,7 @@ export default function Leaderboard() {
         </div>
       )}
 
-      {revealStep > 0 && (
+      {!hidden && revealStep > 0 && (
         <div className="max-w-xl relative">
           <AnimatePresence>
             {justRevealedRank !== null && (

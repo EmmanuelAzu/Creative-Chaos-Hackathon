@@ -57,6 +57,7 @@ export interface Settings {
   reveal_step: number;
   final_vote_team_id: string | null;
   final_vote_deadline: string | null;
+  leaderboard_hidden: boolean;
 }
 
 export interface Round1TeamScore {
