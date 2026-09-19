@@ -82,6 +82,35 @@ create table final_votes (
   unique (voter_id, team_id, criteria_id)
 );
 
+-- Belt-and-suspenders against a bad value ever inflating a team's total —
+-- the UI's <input type="range"> min/max is trivially bypassable (anyone can
+-- call the REST API directly with the public anon key), and a fat-fingered
+-- criteria.max_score (e.g. 1200 instead of 12) would otherwise let a
+-- perfectly normal slider drag write a huge value with nothing to catch it.
+create or replace function enforce_score_within_max()
+returns trigger as $$
+declare
+  cap numeric;
+begin
+  select max_score into cap from criteria where id = new.criteria_id;
+  if cap is null then
+    raise exception 'Unknown criteria_id %', new.criteria_id;
+  end if;
+  if new.value < 0 or new.value > cap then
+    raise exception 'value % is out of range for criteria % (max %)', new.value, new.criteria_id, cap;
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+
+create trigger scores_value_within_max
+before insert or update on scores
+for each row execute function enforce_score_within_max();
+
+create trigger final_votes_value_within_max
+before insert or update on final_votes
+for each row execute function enforce_score_within_max();
+
 -- ---------- SINGLE-ROW ADMIN SETTINGS ----------
 create table settings (
   id boolean primary key default true check (id),   -- enforces exactly one row

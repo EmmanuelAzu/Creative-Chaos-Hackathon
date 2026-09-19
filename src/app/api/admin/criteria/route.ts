@@ -10,10 +10,18 @@ export async function POST(req: NextRequest) {
   if (!stage || !name) {
     return NextResponse.json({ error: "stage and name are required" }, { status: 400 });
   }
+  // A fat-fingered max_score (e.g. 1200 instead of 12) silently inflates
+  // every team's total by that same factor the moment one judge maxes out
+  // the slider — cap it at something no single criterion could plausibly
+  // need, well above the biggest one either rubric currently uses (35).
+  const maxScoreNum = Number(max_score);
+  if (!Number.isInteger(maxScoreNum) || maxScoreNum < 1 || maxScoreNum > 100) {
+    return NextResponse.json({ error: "max_score must be a whole number between 1 and 100" }, { status: 400 });
+  }
   const admin = supabaseAdmin();
   const { data, error } = await admin
     .from("criteria")
-    .insert({ stage, name, category, prompt, max_score, sort_order })
+    .insert({ stage, name, category, prompt, max_score: maxScoreNum, sort_order })
     .select()
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
