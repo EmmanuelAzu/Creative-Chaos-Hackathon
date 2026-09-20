@@ -9,6 +9,8 @@ import type { Round1TeamScore, FinalTeamScore, Settings, Criteria, Person } from
 interface TeamRow {
   id: string;
   name: string;
+  final_rank: number | null;
+  final_score_pct: number | null;
 }
 
 const VOTE_WINDOW_SECONDS = 120;
@@ -69,7 +71,10 @@ export default function AdminDashboard() {
       .order("role")
       .order("full_name");
     setPeople((ppl as Person[]) ?? []);
-    const { data: tms } = await supabase.from("teams").select("id, name").order("name");
+    const { data: tms } = await supabase
+      .from("teams")
+      .select("id, name, final_rank, final_score_pct")
+      .order("name");
     setTeams((tms as TeamRow[]) ?? []);
   }
 
@@ -404,6 +409,27 @@ export default function AdminDashboard() {
               {settings?.final_stage_open ? "Close final voting" : "Open final voting"}
             </ActionButton>
           </div>
+        </Section>
+
+        <Section title="Official final results">
+          <p className="text-sm text-ink/60 mb-3">
+            The actual placements & scores set on <code>teams.final_rank</code> /{" "}
+            <code>final_score_pct</code> — exactly what's live on{" "}
+            <code>/leaderboard</code> right now. Separate from the in-app vote
+            tally below, which only reflects ballots cast through the final
+            voting flow.
+          </p>
+          <ScoreTable
+            rows={teams
+              .filter((t) => t.final_rank != null)
+              .sort((a, b) => (a.final_rank as number) - (b.final_rank as number))
+              .map((t) => ({
+                id: t.id,
+                name: t.name,
+                score: t.final_score_pct,
+                detail: `${t.final_rank}${t.final_rank === 1 ? "st" : t.final_rank === 2 ? "nd" : t.final_rank === 3 ? "rd" : "th"} place`,
+              }))}
+          />
         </Section>
 
         <Section title="Final scores & reveal">
