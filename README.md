@@ -126,9 +126,11 @@ Every registered person can pull their own certificate as a PDF, generated
 on the fly (no pre-rendering, no storage — it reflects live standings every
 time it's opened):
 
-- Participants search their name at `/certificate`, or grab it straight from
-  their team's QR page (`/team/[id]`) once everyone's registered. Judges and
-  committee use the same finder page too.
+- Everyone finds their certificate at `/certificates` by entering the full
+  name (and team name, for participants) they registered with — checked
+  against the database before the download link appears — or grabs it
+  straight from their team's QR page (`/team/[id]`) once everyone's
+  registered.
 - The certificate's background/layout comes from a single template image
   (`public/certificate-bg.png`) — only the person's name and team name are
   drawn on top at request time, in the same font/size the previous design

@@ -101,7 +101,7 @@ export default function Home() {
       <footer className="py-8 border-t border-line flex flex-col md:flex-row md:items-end md:justify-between gap-6">
         <SponsorStrip />
         <Link
-          href="/certificate"
+          href="/certificates"
           className="text-sm font-mono text-teal hover:text-teal-deep transition-colors focus-ring"
         >
           Find my certificate →
