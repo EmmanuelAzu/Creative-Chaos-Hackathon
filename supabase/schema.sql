@@ -17,6 +17,7 @@ create table teams (
   is_top5 boolean not null default false,
   round1_rank int,                                    -- frozen at the start of the round-1 reveal (1-10)
   final_rank int,                                     -- filled in only at the final reveal time (1-5)
+  final_score_pct numeric,                            -- the top 5's official final score, shown as a % on the public leaderboard
   created_at timestamptz not null default now()
 );
 

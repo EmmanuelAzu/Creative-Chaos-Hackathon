@@ -8,6 +8,7 @@ export interface Team {
   is_top5: boolean;
   round1_rank: number | null;
   final_rank: number | null;
+  final_score_pct: number | null;
   created_at: string;
 }
 

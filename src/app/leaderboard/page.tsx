@@ -9,6 +9,7 @@ interface FinalRankedTeam {
   id: string;
   name: string;
   final_rank: number;
+  final_score_pct: number | null;
 }
 
 export default function Leaderboard() {
@@ -38,7 +39,7 @@ export default function Leaderboard() {
 
     const { data: teams } = await supabase
       .from("teams")
-      .select("id, name, final_rank")
+      .select("id, name, final_rank, final_score_pct")
       .not("final_rank", "is", null)
       .order("final_rank");
     setTopFive((teams as FinalRankedTeam[]) ?? []);
@@ -55,9 +56,14 @@ export default function Leaderboard() {
           </p>
           <div className="flex flex-col divide-y divide-line text-sm">
             {topFive.map((t) => (
-              <div key={t.id} className="flex items-center gap-4 py-2">
-                <span className="font-mono text-ink/40 w-6">{t.final_rank}</span>
-                {t.name}
+              <div key={t.id} className="flex items-center justify-between gap-4 py-2">
+                <span>
+                  <span className="font-mono text-ink/40 w-6 inline-block">{t.final_rank}</span>
+                  {t.name}
+                </span>
+                {t.final_score_pct != null && (
+                  <span className="font-mono text-teal">{t.final_score_pct}%</span>
+                )}
               </div>
             ))}
             {topFive.length === 0 && <p className="text-ink/50 py-2">No final ranking set yet.</p>}
@@ -97,12 +103,19 @@ function RankRow({ team }: { team: FinalRankedTeam }) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
       transition={{ layout: { type: "spring", stiffness: 300, damping: 30 }, default: { duration: 0.3 } }}
-      className={`flex items-center gap-4 py-5 ${winner ? "px-2 -mx-2 bg-teal/10" : ""}`}
+      className={`flex items-center justify-between gap-4 py-5 ${winner ? "px-2 -mx-2 bg-teal/10" : ""}`}
     >
-      <span className={`font-mono w-14 shrink-0 ${winner ? "text-teal text-2xl" : "text-ink/40 text-lg"}`}>
-        {PLACE_WORDS[team.final_rank] ?? team.final_rank}
+      <span className="flex items-center gap-4 min-w-0">
+        <span className={`font-mono w-14 shrink-0 ${winner ? "text-teal text-2xl" : "text-ink/40 text-lg"}`}>
+          {PLACE_WORDS[team.final_rank] ?? team.final_rank}
+        </span>
+        <span className={`break-words ${winner ? "text-2xl" : "text-lg"}`}>{team.name}</span>
       </span>
-      <span className={`break-words ${winner ? "text-2xl" : "text-lg"}`}>{team.name}</span>
+      {team.final_score_pct != null && (
+        <span className={`font-mono shrink-0 ${winner ? "text-teal text-2xl" : "text-ink/50 text-lg"}`}>
+          {team.final_score_pct}%
+        </span>
+      )}
     </motion.div>
   );
 }
