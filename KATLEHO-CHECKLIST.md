@@ -45,11 +45,19 @@ The system prompt edits are only in testing E.
 
 ## 4. Move to main Coach Max (only after the tests above pass)
 
-- [ ] Run the marker-phrase check on main's system prompt to confirm it is still unchanged.
-- [ ] Copy the system prompt edits in this order:
-  1. bug 3: the "What to expect" block and the Name memory bullet (`BUG-003-buddy-expectations.md`);
-  2. bug 1: the two edits (`BUG-001-calendar-invite-recipient.md`);
-  3. bug 4: the one added sentence (`BUG-004-copy-coachee-on-buddy-emails.md`).
+- [ ] Run the marker-phrase check on main's system prompt to confirm it is still unchanged by us.
+- [ ] Copy the whole system prompt from Coach Max (testing E) to Coach Max main, after a diff:
+  1. Paste main's current prompt and testing E's prompt into a diff tool (for example any online
+     text diff).
+  2. If the only differences are our three edits, copy testing E's prompt over main in one go:
+     - bug 3: the "What to expect" block and the Name memory bullet (`BUG-003-buddy-expectations.md`);
+     - bug 1: the two edits (`BUG-001-calendar-invite-recipient.md`);
+     - bug 4: the one added sentence (`BUG-004-copy-coachee-on-buddy-emails.md`).
+  3. If anything else differs (main changed since the copy, testing E experiments, or the bug 4
+     sentence that was already in testing E before we added it), decide for each difference whether
+     it should go to main. If unsure, fall back to applying the three edits above to main one by one,
+     in that order (bug 3, then bug 1, then bug 4).
+  4. Keep a copy of main's old prompt before overwriting, so it can be restored.
 - [ ] Re-run one booking and one buddy email on main.
 
 ## 5. Decisions only you can make
