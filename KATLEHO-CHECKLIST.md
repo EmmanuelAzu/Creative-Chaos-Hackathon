@@ -61,6 +61,19 @@ The system prompt edits are only in testing E.
   4. Keep a copy of main's old prompt before overwriting, so it can be restored.
 - [ ] Re-run one booking and one buddy email on main.
 
+## 4b. Memory settings (workspace-wide, already changed in Pickaxe)
+
+- [ ] The Name and Manager Name memory instructions were rewritten (S1) and the testing E system prompt
+      now confirms the stored name and the buddy before using them (S9). Memory instruction edits apply to
+      main immediately. Review them (see `BUG-003-buddy-expectations.md`, tests 4 to 6).
+- [ ] The collector still stores wrong values (a person named in an answer becomes the user's Name, the buddy's
+      name goes into Company) and does not update a stored value when the user corrects it. S1 wording did not
+      stop this. S9 stops it harming the conversation.
+- [ ] Check whether the app writes Name and the buddy at signup and whether the collector can overwrite them,
+      using a user created through the app.
+- [ ] Decide whether Name and Manager Name should be set to Inactive in the memory settings. Max would then
+      always ask, at the cost of ignoring signup values.
+
 ## 5. Decisions only you can make
 
 - [ ] Who sends the monthly summary emails to buddies? The email promises them, but nothing sends
