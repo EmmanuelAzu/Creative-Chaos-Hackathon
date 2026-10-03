@@ -61,6 +61,20 @@ The system prompt edits are only in testing E.
   4. Keep a copy of main's old prompt before overwriting, so it can be restored.
 - [ ] Re-run one booking and one buddy email on main.
 
+## 4a. Testing with an app-created user (needs main)
+
+Coach Max (testing E) is a copy used only for prompt testing. The website and the app's onboarding
+point at **Coach Max main**, so a user created through the app cannot be tested on testing E. The
+end-to-end checks (signed-in sign-in email reaching the actions, app-written Name and buddy not
+overwritten, a real booking and a real buddy email) therefore run on main, after the prompt is
+copied across (section 4). Because that changes what live users see:
+
+- [ ] Save a copy of main's current system prompt first, so it can be restored in one paste.
+- [ ] Copy the prompt (after the diff in section 4), then run the app-created-user test straight away.
+- [ ] If anything is wrong, restore the saved prompt.
+- [ ] Changing the app to point at testing E instead would need a code change (the portal link is
+      hardcoded in `lib/send-invite.ts`), so it is not recommended.
+
 ## 4b. Memory settings (workspace-wide, already changed in Pickaxe)
 
 - [ ] The Name and Manager Name memory instructions were rewritten (S1) and the testing E system prompt
