@@ -69,8 +69,10 @@ The system prompt edits are only in testing E.
 - [ ] The collector still stores wrong values (a person named in an answer becomes the user's Name, the buddy's
       name goes into Company) and does not update a stored value when the user corrects it. S1 wording did not
       stop this. S9 stops it harming the conversation.
-- [ ] Check whether the app writes Name and the buddy at signup and whether the collector can overwrite them,
-      using a user created through the app.
+- [ ] The app writes Name and the buddy at signup (origin `api`). In the existing export those values were not
+      overwritten by the collector (see the evidence note in the bug 3 doc). Confirm with one user created
+      through the app: name a different person as the buddy in chat, then check the Name and Manager Name
+      memories are unchanged.
 - [ ] Decide whether Name and Manager Name should be set to Inactive in the memory settings. Max would then
       always ask, at the cost of ignoring signup values.
 
