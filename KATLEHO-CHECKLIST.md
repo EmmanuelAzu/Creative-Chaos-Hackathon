@@ -5,9 +5,10 @@ doc. Nothing here has been applied to the main Coach Max or to production.
 
 ## 1. Merge and deploy (repo and Vercel)
 
-- [ ] Merge the PR from branch `fix/bug-4-copy-coachee`. It carries the bug 1, 3 and 4 work
-      (docs, `lib/buddy-recipients.ts`, its tests, and the changes to `lib/send-manager-email.ts`
-      and `app/api/send-manager-email/route.ts`). Later branch `fix/bug-2-invite-bounce` adds only docs.
+- [ ] Merge branch `fix/bug-2-invite-bounce` into main. It contains everything: the bug 1, 3 and 4
+      work (docs, `lib/buddy-recipients.ts`, its tests, and the changes to `lib/send-manager-email.ts`
+      and `app/api/send-manager-email/route.ts`), plus the bug 2 doc and this checklist. The only
+      code change is bug 4's. The other bug fixes are Pickaxe-side and are documented only.
 - [ ] Run `npm test` (9 tests in `lib/buddy-recipients.test.mjs`) before or after merging.
 - [ ] Deploy to Vercel.
 - [ ] After deploy, check two things from bug 4 (see `BUG-004-copy-coachee-on-buddy-emails.md`):
